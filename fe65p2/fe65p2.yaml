@@ -1,0 +1,207 @@
+#
+# ------------------------------------------------------------
+# Copyright (c) All rights reserved
+# SiLab, Institute of Physics, University of Bonn
+# ------------------------------------------------------------
+#
+
+transfer_layer:
+  - name  : intf
+    #type  : SiSim
+    type  : SiUsb
+    bit_file: ../firmware/ise/fe65p2_mio.bit
+    avoid_download: True
+    
+hw_drivers:
+  - name      : GPAC
+    type      : GPAC
+    interface : intf
+    base_addr : 0x00000
+    no_calibration : True
+
+  - name      : gpio
+    type      : gpio
+    interface : intf
+    base_addr : 0x10000
+    size      : 8
+    
+  - name      : spi
+    type      : spi
+    interface : intf
+    base_addr : 0x11000
+    mem_bytes : 512
+
+#  - name      : spi_rx
+#    type      : fast_spi_rx
+#    interface : intf
+#    base_addr : 0x12000
+    
+  - name      : trigger
+    type      : pulse_gen
+    interface : intf
+    base_addr : 0x13000
+    
+  - name      : inj
+    type      : pulse_gen
+    interface : intf
+    base_addr : 0x14000
+    
+  - name      : testhit
+    type      : pulse_gen
+    interface : intf
+    base_addr : 0x15000
+ 
+  - name      : rx
+    type      : fei4_rx
+    interface : intf
+    base_addr : 0x16000
+    
+  - name      : fifo
+    type      : sram_fifo
+    interface : intf
+    base_addr : 0x18000
+    base_data_addr: 0x1000000000000
+
+registers:
+
+  - name        : control
+    type        : StdRegister
+    hw_driver   : gpio
+    size        : 8
+    fields:
+      - name    : RESET
+        size    : 2
+        offset  : 1
+      - name    : CLK_BX_GATE
+        size    : 1
+        offset  : 2
+      - name    : PIX_D_CONF
+        size    : 1
+        offset  : 3
+      - name    : GATE_EN_PIX_SR
+        size    : 1
+        offset  : 4
+      - name    : DISABLE_LD
+        size    : 1
+        offset  : 5
+      - name    : CLK_OUT_GATE
+        size    : 1
+        offset  : 6
+      - name    : LD
+        size    : 1
+        offset  : 7
+        
+        
+  - name        : global_conf
+    type        : StdRegister
+    hw_driver   : spi
+    size        : 145
+    auto_start  : True
+    fields:
+      - name    : TestHit
+        size    : 1
+        offset  : 0
+      - name    : SignLd
+        size    : 1
+        offset  : 1
+      - name    : InjEnLd
+        size    : 1
+        offset  : 2
+      - name    : TDacLd
+        size    : 4
+        offset  : 6
+      - name    : PixConfLd
+        size    : 2
+        offset  : 8
+        
+      - name    : OneSr
+        size    : 1
+        offset  : 10
+      - name    : Latency
+        size    : 9
+        offset  : 20
+      - name    : ColEn
+        size    : 16
+        offset  : 36
+      - name    : ColSrEn
+        size    : 16
+        offset  : 52
+      - name    : ColSrOut
+        size    : 4
+        offset  : 56
+        
+      - name    : SPARE
+        size    : 8
+        offset  : 64
+      - name    : PrmpVbpDac
+        size    : 8
+        offset  : 72
+      - name    : vthin1Dac
+        size    : 8
+        offset  : 80
+      - name    : vthin2Dac
+        size    : 8
+        offset  : 88
+      - name    : vffDac
+        size    : 8
+        offset  : 96
+      - name    : VctrCF0Dac
+        size    : 8
+        offset  : 104
+      - name    : VctrCF1Dac
+        size    : 8
+        offset  : 112
+      - name    : PrmpVbnFolDac
+        size    : 8
+        offset  : 120
+      - name    : vbnLccDac
+        size    : 8
+        offset  : 128
+      - name    : compVbnDac
+        size    : 8
+        offset  : 136
+      - name    : preCompVbnDac
+        size    : 8
+        offset  : 144
+
+  - name        : pixel_conf
+    type        : StdRegister
+    hw_driver   : spi
+    size        : 4096
+    auto_start  : True
+    fields:
+      - name    : Pixel
+        size    : 4096
+        offset  : 4095
+
+  - name        : VDDD
+    type        : FunctionalRegister
+    hw_driver   : GPAC
+    arg_names   : [ value ]
+    arg_add     : { 'channel': 'PWR0'}
+
+  - name        : VDDA
+    type        : FunctionalRegister
+    hw_driver   : GPAC
+    arg_names   : [ value ]
+    arg_add     : { 'channel': 'PWR1'}
+
+  - name        : VAUX
+    type        : FunctionalRegister
+    hw_driver   : GPAC
+    arg_names   : [ value ]
+    arg_add     : { 'channel': 'PWR2'}
+
+  - name        : INJ_LO
+    type        : FunctionalRegister
+    hw_driver   : GPAC
+    arg_names   : [ value ]
+    arg_add     : { 'channel': 'INJ0'}
+
+  - name        : INJ_HI
+    type        : FunctionalRegister
+    hw_driver   : GPAC
+    arg_names   : [ value ]
+    arg_add     : { 'channel': 'INJ1'}
+
+    
