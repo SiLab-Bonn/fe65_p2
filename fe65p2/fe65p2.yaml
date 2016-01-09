@@ -17,7 +17,7 @@ hw_drivers:
     type      : GPAC
     interface : intf
     base_addr : 0x00000
-    no_calibration : True
+    #no_calibration : True
 
   - name      : gpio
     type      : gpio
