@@ -82,7 +82,7 @@ class TestSimSr(unittest.TestCase):
         #TODO: check for pixels
         
     def tearDown(self):
-    
+        self.dut.close()
         cocotb_compile_clean()
 
 if __name__ == '__main__':

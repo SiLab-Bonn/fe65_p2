@@ -61,6 +61,7 @@ class TestScanDigital(unittest.TestCase):
         #TODO: more checks
         
     def tearDown(self):
+        self.dut.close()
         cocotb_compile_clean()
 
 if __name__ == '__main__':
