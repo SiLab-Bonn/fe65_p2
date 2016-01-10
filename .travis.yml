@@ -22,7 +22,7 @@ install:
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH=$HOME/miniconda/bin:$PATH
   - conda update --yes conda
-  - conda install --yes numpy bitarray nose pyyaml numba mock matplotlib scipy tables 
+  - conda install --yes numpy bitarray nose pyyaml numba mock matplotlib scipy pytables 
   
   #cocotb
   - git clone https://github.com/potentialventures/cocotb.git
