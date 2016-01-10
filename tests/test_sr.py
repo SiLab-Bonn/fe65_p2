@@ -11,6 +11,7 @@ from basil.utils.sim.utils import cocotb_compile_and_run, cocotb_compile_clean
 import sys
 import yaml
 import mock
+import time
 
 from fe65p2.fe65p2 import fe65p2
 
@@ -26,8 +27,7 @@ def _preprocess_conf(self, conf):
     
 class TestSimSr(unittest.TestCase):
 
-    @mock.patch('fe65p2.fe65p2.fe65p2._preprocess_conf', autospec=True, side_effect=lambda *args, **kwargs: _preprocess_conf(*args, **kwargs)) #change interface to SiSim
-    def setUp(self, mock_preprocess):
+    def setUp(self):
         
         proj_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) #../
 
@@ -43,10 +43,11 @@ class TestSimSr(unittest.TestCase):
             extra = 'export SIMULATION_MODULES='+yaml.dump({'HitDefaultDriver' : {} })
         )
         
+    @mock.patch('fe65p2.fe65p2.fe65p2._preprocess_conf', autospec=True, side_effect=lambda *args, **kwargs: _preprocess_conf(*args, **kwargs)) #change interface to SiSim
+    def test_sr(self, mock_preprocess):
+    
         self.dut = fe65p2()
         self.dut.init()
-
-    def test_sr(self):
 
         self.dut['control']['RESET'] = 1
         self.dut['control'].write()
@@ -81,8 +82,10 @@ class TestSimSr(unittest.TestCase):
         
         #TODO: check for pixels
         
-    def tearDown(self):
         self.dut.close()
+        time.sleep(30)
+        
+    def tearDown(self):
         cocotb_compile_clean()
 
 if __name__ == '__main__':

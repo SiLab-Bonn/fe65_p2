@@ -12,6 +12,7 @@ import sys
 import yaml
 import mock
 import numpy as np
+import time
 
 from fe65p2.fe65p2 import fe65p2
 from fe65p2.scans.scan_digital import DigitalScan
@@ -60,8 +61,11 @@ class TestScanDigital(unittest.TestCase):
         self.assertEqual(len(data),  exp_count) 
         #TODO: more checks
         
-    def tearDown(self):
         self.dut.close()
+        time.sleep(30)
+         
+    def tearDown(self):
+    
         cocotb_compile_clean()
 
 if __name__ == '__main__':

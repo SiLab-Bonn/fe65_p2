@@ -35,4 +35,6 @@ install:
   - python setup.py develop
 
 script:
-  - cd tests; nosetests test_*.py
+  - cd tests; 
+  - nosetests -s test_scan_digital.py
+  - nosetests -s test_sr.py
