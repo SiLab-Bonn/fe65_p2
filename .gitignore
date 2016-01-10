@@ -58,3 +58,6 @@ target/
 
 /firmware/ise/*
 !/firmware/ise/*.xise
+
+*.vcd
+tests/fe65p2.sv
