@@ -13,6 +13,46 @@ import os
 import numpy as np
 import time
 
+from numba import jit, njit
+
+@njit
+def _interpret_raw_data(data, trig_data):
+    irec = 0
+    for inx in range(data.shape[0]):
+        if (data[inx] & 0x800000):
+            trig_data[irec].bcid = data[inx] & 0x7fffff
+        else:
+            trig_data[irec].col = (data[inx] & 0b111100000000000000000) >> 17
+            trig_data[irec].row = (data[inx] & 0b11111100000000000) >>11
+            trig_data[irec].rowp = (data[inx] & 0b10000000000) >> 10
+            trig_data[irec].tot1 = (data[inx] & 0b11110000) >> 4
+            trig_data[irec].tot0 = (data[inx] & 0b1111)
+            irec += 1
+            
+    return trig_data[:irec]
+
+@njit
+def _interpret_pix_data(data, pix_data):
+    
+    #TODO: fix the pixel assignment
+    irec = 0
+    for i in range(data.shape[0]):
+        if(data[i].tot0 != 15):
+            pix_data[irec].bcid = data[i].bcid
+            pix_data[irec].row = data[i].row * 2 + data[i].rowp
+            pix_data[irec].col = data[i].col * 2
+            pix_data[irec].tot = data[i].tot0
+            irec += 1
+            
+        if(data[i].tot1 != 15):
+            pix_data[irec].bcid = data[i].bcid
+            pix_data[irec].row = data[i].row * 2 + data[i].rowp
+            pix_data[irec].col = data[i].col * 2 + 1
+            pix_data[irec].tot = data[i].tot1
+            irec += 1
+
+    return pix_data[:irec]
+    
 class fe65p2(Dut):
 
     def __init__(self,conf=None):
@@ -89,48 +129,15 @@ class fe65p2(Dut):
             self['control']['LD'] = 0
             self['control'].write()
         
-
     def interpret_raw_data(self, data):
-        '''TODO: speed this up. With Numba?'''
+        trig_data = np.recarray((data.shape[0],), dtype={'names':['bcid','col','row','rowp','tot1','tot0'], 'formats':['uint32','uint8','uint8','uint8','uint8','uint8']})
+        return _interpret_raw_data(data, trig_data)
         
-        trig_data = np.array([], dtype={'names':['bcid','col','row','rowp','tot1','tot0'], 'formats':['uint32','uint8','uint8','uint8','uint8','uint8']})
         
-        bcid = -1
-        for inx, i in enumerate(data):
-            if (i & 0x800000):
-                bcid = i & 0x7fffff
-            else:
-                col = (i & 0b111100000000000000000) >> 17
-                row = (i & 0b11111100000000000) >>11
-                rowp = (i & 0b10000000000) >> 10
-                tot1 = (i & 0b11110000) >> 4
-                tot0 = (i & 0b1111)
-                datat = np.array([(bcid, col, row, rowp, tot1, tot0)], dtype=trig_data.dtype)
-                trig_data = np.append(trig_data, datat)
-                
-        return trig_data
-   
     def interpret_pix_data(self, data):
-        
-        pix_data = np.array([], dtype={'names':['bcid','col','row','tot'], 'formats':['uint32','uint8','uint8','uint8']})
-        
-        for word in data:
-            bcid = word['bcid']
-            row = word['row']*2 + word['rowp']
-            
-            if(word['tot0'] != 15):
-                col = word['col']*2
-                
-                datat = np.array([(bcid, col, row, word['tot0'])], dtype=pix_data.dtype)
-                pix_data = np.append(pix_data, datat)
-            
-            if(word['tot1'] != 15):
-                col = word['col']*2+1
-                
-                datat = np.array([(bcid, col, row, word['tot1'])], dtype=pix_data.dtype)
-                pix_data = np.append(pix_data, datat)
-                
-        return pix_data
+        pix_data = np.recarray((data.shape[0] * 2,), dtype={'names':['bcid','col','row','tot'], 'formats':['uint32','uint8','uint8','uint8']})
+        return _interpret_pix_data(data, pix_data)
+       
         
     
     def power_up(self):
