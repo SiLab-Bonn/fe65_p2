@@ -59,5 +59,11 @@ target/
 /firmware/ise/*
 !/firmware/ise/*.xise
 
-*.vcd
 tests/fe65p2.sv
+
+*.vcd
+*.vcd.hier
+
+tests/sim_build
+tests/results.xml
+tests/Makefile
