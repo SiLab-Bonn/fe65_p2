@@ -14,7 +14,9 @@ before_install:
   - sudo apt-get update
 
 install:
-   
+  - sudo apt-get -y install iverilog-daily  
+  - sudo apt-get install -qq libhdf5-serial-dev
+  
   #conda
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
@@ -25,9 +27,6 @@ install:
   #cocotb
   - git clone https://github.com/potentialventures/cocotb.git
   - export COCOTB=$(pwd)/cocotb
- 
-  #iverilog
-  - sudo apt-get -y install iverilog-daily  
 
   # Install basil
   - python setup.py develop
