@@ -10,7 +10,7 @@ import bitarray
 
 local_configuration = {
     "mask_steps": 4,
-    "repeat_command": 10
+    "repeat_command": 100
 }
 
 class DigitalScan(ScanBase):
@@ -112,20 +112,16 @@ class DigitalScan(ScanBase):
             self.dut['testhit'].start()
     
     def analyze(self):
-        dqdata =  self.fifo_readout.data
-        print dqdata
+        dqdata =  self.fifo_readout.data        
         data = np.concatenate([item[0] for item in dqdata])
-                
-        for inx, i in enumerate(data[:100]):
-            if (i & 0x800000):
-                print(inx, hex(i), 'BcId=', i & 0x7fffff)
-            else:
-                print(inx, hex(i), 'col=', (i & 0b111100000000000000000) >> 17, 'row=', (i & 0b11111100000000000) >>11, 'rowp=', (i & 0b10000000000) >> 10, 'tot1=', (i & 0b11110000) >> 4, 'tot0=', (i & 0b1111))
-    
-        raw_int_data = self.dut.interpret_raw_data(data)
-        int_pix_data = self.dut.interpret_pix_data(raw_int_data)
         
-        print int_pix_data
+        #for inx, i in enumerate(data[:100]):
+        #    if (i & 0x800000):
+        #        print(inx, hex(i), 'BcId=', i & 0x7fffff)
+        #    else:
+        #        print(inx, hex(i), 'col=', (i & 0b111100000000000000000) >> 17, 'row=', (i & 0b11111100000000000) >>11, 'rowp=', (i & 0b10000000000) >> 10, 'tot1=', (i & 0b11110000) >> 4, 'tot0=', (i & 0b1111))
+    
+        int_pix_data = self.dut.interpret_raw_data(data)
         H, _, _ = np.histogram2d(int_pix_data['row'], int_pix_data['col'], bins = (np.max(int_pix_data['row'])+1,np.max(int_pix_data['col'])+1))
         
         np.set_printoptions(threshold=np.nan)

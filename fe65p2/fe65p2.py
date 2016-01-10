@@ -16,41 +16,32 @@ import time
 from numba import jit, njit
 
 @njit
-def _interpret_raw_data(data, trig_data):
+def _interpret_raw_data(data, pix_data):
     irec = 0
     for inx in range(data.shape[0]):
         if (data[inx] & 0x800000):
-            trig_data[irec].bcid = data[inx] & 0x7fffff
+            bcid = data[inx] & 0x7fffff
         else:
-            trig_data[irec].col = (data[inx] & 0b111100000000000000000) >> 17
-            trig_data[irec].row = (data[inx] & 0b11111100000000000) >>11
-            trig_data[irec].rowp = (data[inx] & 0b10000000000) >> 10
-            trig_data[irec].tot1 = (data[inx] & 0b11110000) >> 4
-            trig_data[irec].tot0 = (data[inx] & 0b1111)
-            irec += 1
+            col = (data[inx] & 0b111100000000000000000) >> 17
+            row = (data[inx] & 0b11111100000000000) >>11
+            rowp = (data[inx] & 0b10000000000) >> 10
+            tot1 = (data[inx] & 0b11110000) >> 4
+            tot0 = (data[inx] & 0b1111)
             
-    return trig_data[:irec]
-
-@njit
-def _interpret_pix_data(data, pix_data):
-    
-    #TODO: fix the pixel assignment
-    irec = 0
-    for i in range(data.shape[0]):
-        if(data[i].tot0 != 15):
-            pix_data[irec].bcid = data[i].bcid
-            pix_data[irec].row = data[i].row * 2 + data[i].rowp
-            pix_data[irec].col = data[i].col * 2
-            pix_data[irec].tot = data[i].tot0
-            irec += 1
+            if(tot0 != 15):
+                pix_data[irec].bcid = bcid
+                pix_data[irec].row = row * 2 + rowp
+                pix_data[irec].col = col * 2
+                pix_data[irec].tot = tot0
+                irec += 1
+                
+            if(tot1 != 15):
+                pix_data[irec].bcid = bcid
+                pix_data[irec].row = row * 2 + rowp
+                pix_data[irec].col = col * 2 + 1
+                pix_data[irec].tot = tot1
+                irec += 1
             
-        if(data[i].tot1 != 15):
-            pix_data[irec].bcid = data[i].bcid
-            pix_data[irec].row = data[i].row * 2 + data[i].rowp
-            pix_data[irec].col = data[i].col * 2 + 1
-            pix_data[irec].tot = data[i].tot1
-            irec += 1
-
     return pix_data[:irec]
     
 class fe65p2(Dut):
@@ -130,16 +121,9 @@ class fe65p2(Dut):
             self['control'].write()
         
     def interpret_raw_data(self, data):
-        trig_data = np.recarray((data.shape[0],), dtype={'names':['bcid','col','row','rowp','tot1','tot0'], 'formats':['uint32','uint8','uint8','uint8','uint8','uint8']})
-        return _interpret_raw_data(data, trig_data)
-        
-        
-    def interpret_pix_data(self, data):
         pix_data = np.recarray((data.shape[0] * 2,), dtype={'names':['bcid','col','row','tot'], 'formats':['uint32','uint8','uint8','uint8']})
-        return _interpret_pix_data(data, pix_data)
+        return _interpret_raw_data(data, pix_data)
        
-        
-    
     def power_up(self):
     
         self['VDDA'].set_current_limit(200, unit='mA')
