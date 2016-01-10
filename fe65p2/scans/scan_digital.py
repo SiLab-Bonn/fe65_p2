@@ -10,7 +10,7 @@ import bitarray
 
 local_configuration = {
     "mask_steps": 4,
-    "repeat_command": 50
+    "repeat_command": 10
 }
 
 class DigitalScan(ScanBase):
