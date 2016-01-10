@@ -67,6 +67,9 @@ class ScanBase(object):
     @contextmanager
     def readout(self, *args, **kwargs):
         self.fifo_readout = FifoReadout(self.dut)
+        
+        #self.fifo_readout.readout_interval = 10
+        
         timeout = kwargs.pop('timeout', 10.0)
         self.fifo_readout.print_readout_status()
         self.start_readout(*args, **kwargs)

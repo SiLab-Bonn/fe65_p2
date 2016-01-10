@@ -7,7 +7,6 @@
 
 transfer_layer:
   - name  : intf
-    #type  : SiSim
     type  : SiUsb
     bit_file: ../firmware/ise/fe65p2_mio.bit
     avoid_download: True
@@ -17,7 +16,7 @@ hw_drivers:
     type      : GPAC
     interface : intf
     base_addr : 0x00000
-    #no_calibration : True
+    no_calibration : False
 
   - name      : gpio
     type      : gpio

@@ -21,11 +21,16 @@ class fe65p2(Dut):
             conf = os.path.dirname(os.path.abspath(__file__)) + os.sep + "fe65p2.yaml"
         
         logging.info("Loading configuration file from %s" % conf)
+        
+        conf = self._preprocess_conf(conf)
         super(fe65p2, self).__init__(conf)
     
     def init(self):
         super(fe65p2, self).init()
 
+    def _preprocess_conf(self, conf):
+        return conf
+        
     def write_global(self):
     
         #size of global register
