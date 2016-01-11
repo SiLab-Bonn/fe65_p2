@@ -1,4 +1,7 @@
 # FE65P2
+
+ [![Build Status](https://travis-ci.org/SiLab-Bonn/fe65_p2.svg?branch=master)](https://travis-ci.org/SiLab-Bonn/pyBAR)
+ 
 DAQ for FE65P2 prototype based on Basil framwork. Many files and ideas are taken from [pyBar](https://github.com/SiLab-Bonn/pyBAR) project.
 
 ## Instalation
