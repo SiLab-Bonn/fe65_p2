@@ -55,7 +55,7 @@ class TestScanDigital(unittest.TestCase):
         self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
         self.scan.analyze()
         
-        data = np.concatenate([item[0] for item in scan.fifo_readout.data])
+        data = np.concatenate([item[0] for item in self.scan.fifo_readout.data])
         exp_count = mask_steps * repeat_command * 8 + 2 * 4 * 64 * repeat_command
         
         self.assertEqual(len(data),  exp_count) 
