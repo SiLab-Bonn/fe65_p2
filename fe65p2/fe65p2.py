@@ -28,17 +28,18 @@ def _interpret_raw_data(data, pix_data):
             tot1 = (data[inx] & 0b11110000) >> 4
             tot0 = (data[inx] & 0b1111)
             
+            # !!! THIS MAPPING MAY BE WRONG !!! 
             if(tot0 != 15):
                 pix_data[irec].bcid = bcid
-                pix_data[irec].row = row * 2 + rowp
-                pix_data[irec].col = col * 2
+                pix_data[irec].row = (row % 32) * 2 + rowp
+                pix_data[irec].col = col * 4 + (row / 32) * 2 
                 pix_data[irec].tot = tot0
                 irec += 1
-                
+
             if(tot1 != 15):
                 pix_data[irec].bcid = bcid
-                pix_data[irec].row = row * 2 + rowp
-                pix_data[irec].col = col * 2 + 1
+                pix_data[irec].row = (row % 32) * 2 + rowp
+                pix_data[irec].col = col * 4 + 1 + (row / 32) * 2
                 pix_data[irec].tot = tot1
                 irec += 1
             
