@@ -100,11 +100,8 @@ class DigitalScan(ScanBase):
                     
                 while not self.dut['trigger'].is_done():
                     pass
-            
-                print 'fifo-size', self.dut['fifo'].get_fifo_size()
                 
             #just some time for last read
-            time.sleep(1)
             self.dut['trigger'].set_en(False)
             self.dut['testhit'].start()
     
