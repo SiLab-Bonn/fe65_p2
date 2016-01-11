@@ -101,6 +101,8 @@ class DigitalScan(ScanBase):
                 while not self.dut['trigger'].is_done():
                     pass
             
+                print 'fifo-size', self.dut['fifo'].get_fifo_size()
+                
             #just some time for last read
             time.sleep(1)
             self.dut['trigger'].set_en(False)
@@ -117,7 +119,7 @@ class DigitalScan(ScanBase):
         #        print(inx, hex(i), 'col=', (i & 0b111100000000000000000) >> 17, 'row=', (i & 0b11111100000000000) >>11, 'rowp=', (i & 0b10000000000) >> 10, 'tot1=', (i & 0b11110000) >> 4, 'tot0=', (i & 0b1111))
     
         int_pix_data = self.dut.interpret_raw_data(data)
-        H, _, _ = np.histogram2d(int_pix_data['col'], int_pix_data['row'], bins = (range(64), range(64)))
+        H, _, _ = np.histogram2d(int_pix_data['col'], int_pix_data['row'], bins = (range(65), range(65)))
        
         np.set_printoptions(threshold=np.nan)
         print H
