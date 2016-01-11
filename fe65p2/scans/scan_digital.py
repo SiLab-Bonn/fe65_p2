@@ -26,12 +26,10 @@ class DigitalScan(ScanBase):
         repeat : int
             Number of injections.
         '''
-        
-        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
-        
+
         #write InjEnLd & PixConfLd to '1
         self.dut['pixel_conf'].setall(True)
-        self.dut.write_pixel()
+        self.dut.write_pixel_col()
         self.dut['global_conf']['SignLd'] = 1
         self.dut['global_conf']['InjEnLd'] = 1
         self.dut['global_conf']['TDacLd'] = 0b1111
@@ -40,23 +38,22 @@ class DigitalScan(ScanBase):
         
         #write SignLd & TDacLd to '0
         self.dut['pixel_conf'].setall(False)
-        self.dut.write_pixel()
+        self.dut.write_pixel_col()
         self.dut['global_conf']['SignLd'] = 0
         self.dut['global_conf']['InjEnLd'] = 0
         self.dut['global_conf']['TDacLd'] = 0b0000
         self.dut['global_conf']['PixConfLd'] = 0b01
         self.dut.write_global()
        
-        #off
+        #test hit
+        self.dut['global_conf']['TestHit'] = 1
         self.dut['global_conf']['SignLd'] = 0
         self.dut['global_conf']['InjEnLd'] = 0
         self.dut['global_conf']['TDacLd'] = 0
         self.dut['global_conf']['PixConfLd'] = 0
         
         self.dut['global_conf']['OneSr'] = 0 #all multi columns in parallel
-        
-        self.dut['global_conf']['TestHit'] = 1
-        
+        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)        
         self.dut.write_global()
     
         self.dut['control']['RESET'] = 0b01
@@ -70,8 +67,7 @@ class DigitalScan(ScanBase):
         
         self.dut['control']['RESET'] = 0b11
         self.dut['control'].write()
-        
-        
+                
         #enable testhit pulse and trigger
         self.dut['testhit'].set_delay(columns.count(True) * 5000) #this should based on mask and enabled columns
         self.dut['testhit'].set_width(3)
@@ -83,7 +79,6 @@ class DigitalScan(ScanBase):
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
         
-
         lmask = [1] + ( [0] * (mask_steps-1) )
         lmask = lmask * ( (64 * 64) / mask_steps  + 1 )
         lmask = lmask[:64*64]

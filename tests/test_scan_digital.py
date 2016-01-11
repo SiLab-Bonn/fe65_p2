@@ -51,9 +51,9 @@ class TestScanDigital(unittest.TestCase):
         mask_steps = 4
         repeat_command = 2 
         
-        scan = DigitalScan()
-        scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
-        scan.analyze()
+        self.scan = DigitalScan()
+        self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
+        self.scan.analyze()
         
         data = np.concatenate([item[0] for item in scan.fifo_readout.data])
         exp_count = mask_steps * repeat_command * 8 + 2 * 4 * 64 * repeat_command
@@ -61,11 +61,10 @@ class TestScanDigital(unittest.TestCase):
         self.assertEqual(len(data),  exp_count) 
         #TODO: more checks
         
-        self.dut.close()
-        time.sleep(30)
-         
+
     def tearDown(self):
-    
+        self.scan.dut.close()
+        time.sleep(10)
         cocotb_compile_clean()
 
 if __name__ == '__main__':

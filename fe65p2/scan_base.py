@@ -44,8 +44,11 @@ class ScanBase(object):
         self.dut['global_conf']['ColSrEn'].setall(True) #enable programming of all columns
         self.dut['global_conf']['ColSrOut'] = 15
         
-        self.dut['global_conf']['OneSr'] = 1
+        self.dut['global_conf']['OneSr'] = 0 #all multi columns in parallel
         self.dut.write_global() 
+        
+        self.dut['control']['RESET'] = 0b10
+        self.dut['control'].write()
         
         logging.info('Power Status: %s', str(self.dut.power_status()))
         
