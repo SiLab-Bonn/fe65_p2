@@ -44,9 +44,9 @@ class TestScanDigital(unittest.TestCase):
             extra = 'export SIMULATION_MODULES='+yaml.dump({'HitDefaultDriver' : {} })
         )
         
-
+    #@unittest.skip("")
     @mock.patch('fe65p2.fe65p2.fe65p2._preprocess_conf', autospec=True, side_effect=lambda *args, **kwargs: _preprocess_conf(*args, **kwargs)) #change interface to SiSim
-    def test_scan(self, mock_preprocess):
+    def test_scan_digital(self, mock_preprocess):
         
         mask_steps = 4
         repeat_command = 2 
@@ -62,6 +62,25 @@ class TestScanDigital(unittest.TestCase):
         #TODO: more checks
         
 
+    
+    @mock.patch('fe65p2.fe65p2.fe65p2._preprocess_conf', autospec=True, side_effect=lambda *args, **kwargs: _preprocess_conf(*args, **kwargs)) #change interface to SiSim
+    def test_scan_analog(self, mock_preprocess):
+        
+        mask_steps = 4
+        repeat_command = 2 
+        
+        from fe65p2.scans.analog_scan import AnalogScan
+        self.scan = AnalogScan()
+        self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
+        self.scan.analyze()
+        
+        data = np.concatenate([item[0] for item in self.scan.fifo_readout.data])
+        exp_count = mask_steps * repeat_command * 16 + 2 * 4 * 64 * repeat_command
+        
+        self.assertEqual(len(data),  exp_count) 
+        #TODO: more checks
+    
+    
     def tearDown(self):
         self.scan.dut.close()
         time.sleep(10)
