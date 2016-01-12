@@ -34,7 +34,7 @@ class AnalogScan(ScanBase):
         
         
         self.dut['INJ_LO'].set_voltage(1.0, unit='V')
-        self.dut['INJ_HI'].set_voltage(0.6, unit='V')
+        self.dut['INJ_HI'].set_voltage(0.5, unit='V')
         
         self.dut['global_conf']['vthin1Dac'] = 150
         self.dut['global_conf']['vthin2Dac'] = 0

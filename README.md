@@ -10,7 +10,7 @@ Use [conda](http://conda.pydata.org) for python. See [.travis.yml](https://githu
 
 ## Usage
 ```
-python fe65p2/scans/scan_digital.py
+python fe65p2/scans/digital_scan.py
 ```
 
 ## TODO

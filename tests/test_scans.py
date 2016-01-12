@@ -15,7 +15,8 @@ import numpy as np
 import time
 
 from fe65p2.fe65p2 import fe65p2
-from fe65p2.scans.scan_digital import DigitalScan
+from fe65p2.scans.digital_scan import DigitalScan
+from fe65p2.scans.analog_scan import AnalogScan
 
 def _preprocess_conf(self, conf):
     
@@ -69,7 +70,6 @@ class TestScanDigital(unittest.TestCase):
         mask_steps = 4
         repeat_command = 2 
         
-        from fe65p2.scans.analog_scan import AnalogScan
         self.scan = AnalogScan()
         self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
         self.scan.analyze()
