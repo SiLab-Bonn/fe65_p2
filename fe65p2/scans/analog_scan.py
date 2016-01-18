@@ -9,7 +9,7 @@ import numpy as np
 import bitarray
 
 local_configuration = {
-    "mask_steps": 16,
+    "mask_steps": 4*64,
     "repeat_command": 100
 }
 
@@ -27,7 +27,7 @@ class AnalogScan(ScanBase):
             Number of injections.
         '''
         
-        #columns = [True] + [False] * 15 
+        columns = [True] + [False] * 15
 
         #self.dut['INJ_LO'].set_voltage(0, unit='V')
         #self.dut['INJ_HI'].set_voltage(1.2, unit='V')
@@ -97,6 +97,11 @@ class AnalogScan(ScanBase):
         lmask = lmask[:64*64]
         bv_mask = bitarray.bitarray(lmask)
         
+        self.fifo_readout.reset_rx()
+        time.sleep(0.1)
+        self.fifo_readout.print_readout_status()
+        
+        
         with self.readout(fill_buffer=True):
             
             for i in range(mask_steps):
@@ -105,7 +110,7 @@ class AnalogScan(ScanBase):
                 self.dut['pixel_conf'].setall(False)
                 self.dut.write_pixel_col()
                 self.dut['global_conf']['InjEnLd'] = 1
-                #self.dut['global_conf']['PixConfLd'] = 0b11                
+                self.dut['global_conf']['PixConfLd'] = 0b11                
                 self.dut.write_global()
                 
                 #self.dut['global_conf']['InjEnLd'] = 0
@@ -114,7 +119,7 @@ class AnalogScan(ScanBase):
                 
                 self.dut['pixel_conf'][:]  = bv_mask
                 self.dut.write_pixel_col()
-                #self.dut['global_conf']['PixConfLd'] = 0b11   
+                self.dut['global_conf']['PixConfLd'] = 0b11   
                 self.dut['global_conf']['InjEnLd'] = 1
                 self.dut.write_global()
                 
@@ -132,6 +137,7 @@ class AnalogScan(ScanBase):
                     pass
                 
                 print('.'),
+                #self.fifo_readout.print_readout_status()
                 
             #just some time for last read
             self.dut['trigger'].set_en(False)

@@ -157,6 +157,11 @@ module fe65p2_mio (
     wire CLK8;
     
     (* KEEP = "{TRUE}" *) 
+    reg CLK4;
+
+    
+    
+    (* KEEP = "{TRUE}" *) 
     wire CLK1;
     
     clock_divider #(
@@ -183,10 +188,13 @@ module fe65p2_mio (
     );
 
     initial CLK40 = 0;
-    
     always@(posedge CLK80)
         CLK40 <= !CLK40;
-    
+     
+    initial CLK4 = 0;
+    always@(posedge CLK8)
+        CLK4 <= !CLK4;
+        
     wire BUS_RST;
     reset_gen ireset_gen(.CLK(BUS_CLK), .RST(BUS_RST));
     
@@ -228,10 +236,10 @@ module fe65p2_mio (
     wire DISABLE_LD, LD;
     assign #1000 DUT_RESET = GPIO_OUT[1:0];
     ODDR clk_bx_gate(.D1(GPIO_OUT[2]), .D2(1'b0), .C(CLK40), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_BX) );
-    ODDR clk_out_gate(.D1(GPIO_OUT[6]), .D2(1'b0), .C(CLK160), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_DATA) );
+    //ODDR clk_out_gate(.D1(GPIO_OUT[6]), .D2(1'b0), .C(CLK160), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_DATA) );
     
     //ODDR clk_bx_gate(.D1(1'b1), .D2(1'b0), .C(CLK8), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_BX) );
-    //ODDR clk_out_gate(.D1(GPIO_OUT[6]), .D2(1'b0), .C(CLK80), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_DATA) );
+    ODDR clk_out_gate(.D1(GPIO_OUT[6]), .D2(1'b0), .C(CLK40), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_DATA) );
     
     assign DUT_PIX_D_CONF = GPIO_OUT[3];
     wire GATE_EN_PIX_SR_CNFG;
@@ -371,9 +379,9 @@ module fe65p2_mio (
     .DSIZE(10),
     .DATA_IDENTIFIER(0)
     ) i_fei4_rx (
-        .RX_CLK(CLK160), //CLK160
-        .RX_CLK2X(CLK320), //CLK320
-        .DATA_CLK(CLK16), //CLK16
+        .RX_CLK(CLK40), //CLK160
+        .RX_CLK2X(CLK80), //CLK320
+        .DATA_CLK(CLK4), //CLK16
 
         .RX_DATA(DUT_OUT_DATA),
 

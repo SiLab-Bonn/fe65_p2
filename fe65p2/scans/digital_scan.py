@@ -41,7 +41,7 @@ class DigitalScan(ScanBase):
         self.dut['global_conf']['SignLd'] = 0
         self.dut['global_conf']['InjEnLd'] = 0
         self.dut['global_conf']['TDacLd'] = 0b0000
-        self.dut['global_conf']['PixConfLd'] = 0b01
+        self.dut['global_conf']['PixConfLd'] = 0b00
         self.dut.write_global()
        
         #test hit

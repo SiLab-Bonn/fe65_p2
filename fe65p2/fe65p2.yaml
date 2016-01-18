@@ -17,6 +17,7 @@ hw_drivers:
     interface : intf
     base_addr : 0x00000
     no_calibration : False
+    #no_calibration : True
 
   - name      : gpio
     type      : gpio

@@ -128,14 +128,13 @@ class fe65p2(Dut):
     def power_up(self):
     
         self['VDDA'].set_current_limit(200, unit='mA')
+        
         self['VDDA'].set_voltage(1.2, unit='V')
         self['VDDA'].set_enable(True)
         
-        self['VDDD'].set_current_limit(200, unit='mA')
         self['VDDD'].set_voltage(1.2, unit='V')
         self['VDDD'].set_enable(True)
-        
-        self['VAUX'].set_current_limit(100, unit='mA')
+
         self['VAUX'].set_voltage(1.2, unit='V')
         self['VAUX'].set_enable(True)
 
