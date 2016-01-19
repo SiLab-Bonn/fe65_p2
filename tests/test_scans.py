@@ -54,16 +54,17 @@ class TestScanDigital(unittest.TestCase):
         
         self.scan = DigitalScan()
         self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
-        self.scan.analyze()
+        H = self.scan.analyze()
         
-        data = np.concatenate([item[0] for item in self.scan.fifo_readout.data])
-        exp_count = mask_steps * repeat_command * 8 + 2 * 4 * 64 * repeat_command
+        exp = np.empty((64, 64))
+        exp[:,:] = 0
+        exp[:4,:] = repeat_command
         
-        self.assertEqual(len(data),  exp_count) 
-        #TODO: more checks
-        
+        comp = (H == exp)
+        self.assertTrue(comp.all())
+             
 
-    
+    #@unittest.skip("")
     @mock.patch('fe65p2.fe65p2.fe65p2._preprocess_conf', autospec=True, side_effect=lambda *args, **kwargs: _preprocess_conf(*args, **kwargs)) #change interface to SiSim
     def test_scan_analog(self, mock_preprocess):
         
@@ -72,13 +73,14 @@ class TestScanDigital(unittest.TestCase):
         
         self.scan = AnalogScan()
         self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
-        self.scan.analyze()
+        H = self.scan.analyze()
         
-        data = np.concatenate([item[0] for item in self.scan.fifo_readout.data])
-        exp_count = mask_steps * repeat_command * 16 + 2 * 4 * 64 * repeat_command
+        exp = np.empty((64, 64))
+        exp[:,:] = 0
+        exp[:4,:] = repeat_command
         
-        self.assertEqual(len(data),  exp_count) 
-        #TODO: more checks
+        comp = (H == exp)
+        self.assertTrue(comp.all())
     
     
     def tearDown(self):

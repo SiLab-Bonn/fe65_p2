@@ -23,7 +23,7 @@ def plot_occupancy(hit_data):
     hits = hits + hit_data['row']
     value = np.bincount(hits)
     value = np.pad(value, (0, 64*64 - value.shape[0]), 'constant')
-    
+   
     indices = np.indices(value.shape)
     col = indices[0] / 64
     row = indices[0] % 64

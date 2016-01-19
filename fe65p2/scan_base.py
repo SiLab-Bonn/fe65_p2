@@ -14,7 +14,7 @@ class MetaTable(tb.IsDescription):
     data_length = tb.UInt32Col(pos=2)
     timestamp_start = tb.Float64Col(pos=3)
     timestamp_stop = tb.Float64Col(pos=4)
-    scan_param_id = tb.Float32Col(pos=5)
+    scan_param_id = tb.UInt16Col(pos=5)
     error = tb.UInt32Col(pos=6)
     
     
@@ -66,6 +66,7 @@ class ScanBase(object):
         self.dut['global_conf']['PrmpVbpDac'] = 36
         self.dut['global_conf']['vthin1Dac'] = 255
         self.dut['global_conf']['vthin2Dac'] = 0
+        self.dut['global_conf']['vffDac'] = 42
         self.dut['global_conf']['VctrCF0Dac'] = 42
         self.dut['global_conf']['VctrCF1Dac'] = 0
         self.dut['global_conf']['PrmpVbnFolDac'] = 51

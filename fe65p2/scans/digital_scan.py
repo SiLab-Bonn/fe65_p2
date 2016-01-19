@@ -10,6 +10,7 @@ import numpy as np
 import bitarray
 from bokeh.charts import output_file, show, vplot, hplot
 import tables as tb
+from progressbar import ProgressBar
 
 local_configuration = {
     "mask_steps": 4,
@@ -72,7 +73,8 @@ class DigitalScan(ScanBase):
         self.dut['control'].write()
                 
         #enable testhit pulse and trigger
-        self.dut['testhit'].set_delay(columns.count(True) * 5000) #this should based on mask and enabled columns
+        wiat_for_read = (16 + columns.count(True) * (4*64/mask_steps) * 2 ) * (20/2) + 100
+        self.dut['testhit'].set_delay(wiat_for_read) #this should based on mask and enabled columns
         self.dut['testhit'].set_width(3)
         self.dut['testhit'].set_repeat(repeat_command)
         self.dut['testhit'].set_en(False)
@@ -87,8 +89,9 @@ class DigitalScan(ScanBase):
         lmask = lmask[:64*64]
         bv_mask = bitarray.bitarray(lmask)
         
-        with self.readout(fill_buffer=True):
-            
+        with self.readout():
+        
+            pbar = ProgressBar(maxval=mask_steps).start()
             for i in range(mask_steps):
 
                 self.dut['pixel_conf'][:]  = bv_mask
@@ -99,6 +102,8 @@ class DigitalScan(ScanBase):
                 
                 self.dut['testhit'].start()
                 
+                pbar.update(i)
+                 
                 while not self.dut['testhit'].is_done():
                     pass
                     
@@ -110,6 +115,7 @@ class DigitalScan(ScanBase):
             self.dut['testhit'].start()
     
     def analyze(self):
+        H = None
         with tb.open_file(self.output_filename +'.h5', 'r+') as in_file_h5:
             raw_data = in_file_h5.root.raw_data[:]
     

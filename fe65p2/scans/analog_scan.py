@@ -10,6 +10,7 @@ import numpy as np
 import bitarray
 import tables as tb
 from bokeh.charts import output_file, show, vplot, hplot
+from progressbar import ProgressBar
 
 local_configuration = {
     "mask_steps": 4*64,
@@ -32,15 +33,23 @@ class AnalogScan(ScanBase):
         
         #columns = [True] + [False] * 15
 
-        #self.dut['INJ_LO'].set_voltage(0, unit='V')
-        #self.dut['INJ_HI'].set_voltage(1.2, unit='V')
+        #self.dut['INJ_LO'].set_voltage(0.8, unit='V')
+        #self.dut['INJ_HI'].set_voltage(1, unit='V')
         
+        self.dut['INJ_LO'].set_voltage(1.2, unit='V')
+        self.dut['INJ_HI'].set_voltage(0, unit='V')
         
-        self.dut['INJ_LO'].set_voltage(1.0, unit='V')
-        self.dut['INJ_HI'].set_voltage(0.3, unit='V')
-        
-        self.dut['global_conf']['vthin1Dac'] = 150
+        self.dut['global_conf']['PrmpVbpDac'] = 80
+        self.dut['global_conf']['vthin1Dac'] = 255
         self.dut['global_conf']['vthin2Dac'] = 0
+        self.dut['global_conf']['vffDac'] = 30
+        self.dut['global_conf']['VctrCF0Dac'] = 42
+        self.dut['global_conf']['VctrCF1Dac'] = 0
+        self.dut['global_conf']['PrmpVbnFolDac'] = 51
+        self.dut['global_conf']['vbnLccDac'] = 1
+        self.dut['global_conf']['compVbnDac'] = 25
+        self.dut['global_conf']['preCompVbnDac'] = 50
+        
         self.dut.write_global() 
 
         #write InjEnLd & PixConfLd to '1
@@ -85,12 +94,13 @@ class AnalogScan(ScanBase):
         self.dut['control'].write()
                 
         #enable inj pulse and trigger
-        self.dut['inj'].set_delay(columns.count(True) * 5000) #this should based on mask and enabled columns
+        wiat_for_read = (16 + columns.count(True) * (4*64/mask_steps) * 2 ) * (20/2) + 100
+        self.dut['inj'].set_delay(wiat_for_read) #columns.count(True) * 5000) #this should based on mask and enabled columns
         self.dut['inj'].set_width(100)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
-        self.dut['trigger'].set_delay(400)
+        self.dut['trigger'].set_delay(400-4)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
@@ -100,16 +110,19 @@ class AnalogScan(ScanBase):
         lmask = lmask[:64*64]
         bv_mask = bitarray.bitarray(lmask)
         
-
+       
         with self.readout():
-            
+        
+            pbar = ProgressBar(maxval=mask_steps).start()
             for i in range(mask_steps):
+
+                self.dut['global_conf']['vthin1Dac'] = 255
 
                 #set all InjEn to 0
                 self.dut['pixel_conf'].setall(False)
                 self.dut.write_pixel_col()
                 self.dut['global_conf']['InjEnLd'] = 1
-                self.dut['global_conf']['PixConfLd'] = 0b00                
+                self.dut['global_conf']['PixConfLd'] = 0b00              
                 self.dut.write_global()
                 
                 #self.dut['global_conf']['InjEnLd'] = 0
@@ -122,28 +135,34 @@ class AnalogScan(ScanBase):
                 self.dut['global_conf']['InjEnLd'] = 1
                 self.dut.write_global()
                 
+
                 bv_mask[1:] = bv_mask[0:-1] 
                 bv_mask[0] = 0
-                
+
+                self.dut['global_conf']['vthin1Dac'] = 20
+                self.dut.write_global() 
+        
                 #self.dut.write_pixel_col()
                 
                 self.dut['inj'].start()
-                
+                 
+                pbar.update(i)
+                 
                 while not self.dut['inj'].is_done():
                     pass
                     
                 while not self.dut['trigger'].is_done():
                     pass
                 
-                #print('.'),
+               
                 #self.fifo_readout.print_readout_status()
                 
             #just some time for last read
             self.dut['trigger'].set_en(False)
             self.dut['inj'].start()
-            #print('.')
             
     def analyze(self):
+        H = None
         with tb.open_file(self.output_filename +'.h5', 'r+') as in_file_h5:
             raw_data = in_file_h5.root.raw_data[:]
     
@@ -156,6 +175,10 @@ class AnalogScan(ScanBase):
                              
             output_file(self.output_filename + '.html', title=self.run_name)
             show(vplot(occ_plot, tot_plot, lv1id_plot))
+            
+            np.set_printoptions(threshold=np.nan)
+            
+        return H
         
 if __name__ == "__main__":
 
