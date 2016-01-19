@@ -1,5 +1,6 @@
 
 from fe65p2.scan_base import ScanBase
+import fe65p2.plotting as  plotting
 import time
 
 import logging
@@ -7,6 +8,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(leve
 
 import numpy as np
 import bitarray
+from bokeh.charts import output_file, show, vplot, hplot
+import tables as tb
 
 local_configuration = {
     "mask_steps": 4,
@@ -26,6 +29,7 @@ class DigitalScan(ScanBase):
         repeat : int
             Number of injections.
         '''
+        
         #write InjEnLd & PixConfLd to '1
         self.dut['pixel_conf'].setall(True)
         self.dut.write_pixel_col()
@@ -41,7 +45,7 @@ class DigitalScan(ScanBase):
         self.dut['global_conf']['SignLd'] = 0
         self.dut['global_conf']['InjEnLd'] = 0
         self.dut['global_conf']['TDacLd'] = 0b0000
-        self.dut['global_conf']['PixConfLd'] = 0b01
+        self.dut['global_conf']['PixConfLd'] = 0b00
         self.dut.write_global()
        
         #test hit
@@ -106,26 +110,22 @@ class DigitalScan(ScanBase):
             self.dut['testhit'].start()
     
     def analyze(self):
-        dqdata =  self.fifo_readout.data        
-        data = np.concatenate([item[0] for item in dqdata])
-        
-        #for inx, i in enumerate(data[:200]):
-        #    if (i & 0x800000):
-        #        print(inx, hex(i), 'BcId=', i & 0x7fffff)
-        #    else:
-        #        print(inx, hex(i), 'col=', (i & 0b111100000000000000000) >> 17, 'row=', (i & 0b11111100000000000) >>11, 'rowp=', (i & 0b10000000000) >> 10, 'tot1=', (i & 0b11110000) >> 4, 'tot0=', (i & 0b1111))
+        with tb.open_file(self.output_filename +'.h5', 'r+') as in_file_h5:
+            raw_data = in_file_h5.root.raw_data[:]
     
-        int_pix_data = self.dut.interpret_raw_data(data)
-        H, _, _ = np.histogram2d(int_pix_data['col'], int_pix_data['row'], bins = (range(65), range(65)))
-       
-        np.set_printoptions(threshold=np.nan)
-        print H
+            hit_data = self.dut.interpret_raw_data(raw_data)
+            self.h5_file.createTable(self.h5_file.root, 'hit_data', hit_data, filters=self.filter_tables)
+            
+            occ_plot, H = plotting.plot_occupancy(hit_data)
+            tot_plot,_ = plotting.plot_tot_dist(hit_data)
+            lv1id_plot, _ = plotting.plot_lv1id_dist(hit_data)
+                             
+            output_file(self.output_filename + '.html', title=self.run_name)
+            show(vplot(occ_plot, tot_plot, lv1id_plot))
+            
         return H
 
-        #output_file = scan.scan_data_filename + "_interpreted.h5"
-        
 if __name__ == "__main__":
-
     scan = DigitalScan()
     scan.start(**local_configuration)
     scan.analyze()

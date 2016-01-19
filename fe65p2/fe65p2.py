@@ -18,9 +18,17 @@ from numba import jit, njit
 @njit
 def _interpret_raw_data(data, pix_data):
     irec = 0
+    prev_bcid = 0
+    bcid = 0
+    lv1id = 0
     for inx in range(data.shape[0]):
         if (data[inx] & 0x800000):
             bcid = data[inx] & 0x7fffff
+            if(prev_bcid + 1 != bcid):
+                lv1id = 0
+            else:
+                lv1id += 1
+            prev_bcid = bcid
         else:
             col = (data[inx] & 0b111100000000000000000) >> 17
             row = (data[inx] & 0b11111100000000000) >>11
@@ -31,6 +39,7 @@ def _interpret_raw_data(data, pix_data):
             # !!! THIS MAPPING MAY BE WRONG !!! 
             if(tot0 != 15):
                 pix_data[irec].bcid = bcid
+                pix_data[irec].lv1id = lv1id
                 pix_data[irec].row = (row % 32) * 2 + rowp
                 pix_data[irec].col = col * 4 + (row / 32) * 2 
                 pix_data[irec].tot = tot0
@@ -38,6 +47,7 @@ def _interpret_raw_data(data, pix_data):
 
             if(tot1 != 15):
                 pix_data[irec].bcid = bcid
+                pix_data[irec].lv1id = lv1id
                 pix_data[irec].row = (row % 32) * 2 + rowp
                 pix_data[irec].col = col * 4 + 1 + (row / 32) * 2
                 pix_data[irec].tot = tot1
@@ -122,7 +132,7 @@ class fe65p2(Dut):
             self['control'].write()
         
     def interpret_raw_data(self, data):
-        pix_data = np.recarray((data.shape[0] * 2,), dtype={'names':['bcid','col','row','tot'], 'formats':['uint32','uint8','uint8','uint8']})
+        pix_data = np.recarray((data.shape[0] * 2,), dtype={'names':['bcid','col','row','tot', 'lv1id'], 'formats':['uint32','uint8','uint8','uint8','uint8']})
         return _interpret_raw_data(data, pix_data)
        
     def power_up(self):
