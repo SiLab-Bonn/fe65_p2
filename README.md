@@ -14,7 +14,6 @@ python fe65p2/scans/digital_scan.py
 ```
 
 ## TODO
-- hdf5 file storage for all data  -> pyBar
+- hdf5 file storage for configuration and status (attibutes)
 - configuration loading
-- plotting -> pyBar
 - scans
