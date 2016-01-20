@@ -37,7 +37,6 @@ class ScanBase(object):
         
         self.run_name = time.strftime("%Y%m%d_%H%M%S_") + self.scan_id
         self.output_filename = os.path.join(self.working_dir, self.run_name)
-        logging.info('Otput Filename: %s', self.output_filename)
         
     def start(self, **kwargs):
         
@@ -91,13 +90,9 @@ class ScanBase(object):
         self.scan(**kwargs)
         
         self.fifo_readout.print_readout_status()
-                
-    def stop(self):
-        pass
         
-    def scan_loop(self):
-        pass
-        
+        self.h5_file.close()
+        logging.info('Data Output Filename: %s', self.output_filename + '.h5')
         
     def analyze(self):
         raise NotImplementedError('ScanBase.analyze() not implemented')

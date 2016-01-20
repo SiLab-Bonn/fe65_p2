@@ -19,7 +19,7 @@ local_configuration = {
 }
 
 class AnalogScan(ScanBase):
-    scan_id = "analog_scan"
+    scan_id = "threshold_scan"
 
     def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, **kwargs):
         '''Scan loop
@@ -109,56 +109,61 @@ class AnalogScan(ScanBase):
         lmask = [1] + ( [0] * (mask_steps-1) )
         lmask = lmask * ( (64 * 64) / mask_steps  + 1 )
         lmask = lmask[:64*64]
-        bv_mask = bitarray.bitarray(lmask)
         
-       
-        with self.readout():
-            pbar = ProgressBar(maxval=mask_steps).start()
-            for i in range(mask_steps):
-
-                self.dut['global_conf']['vthin1Dac'] = 255
-                self.dut.write_global()
-                #set all InjEn to 0
-                self.dut['pixel_conf'].setall(False)
-                self.dut.write_pixel_col()
-                self.dut['global_conf']['InjEnLd'] = 1
-                self.dut['global_conf']['PixConfLd'] = 0b00              
-                self.dut.write_global()
-                
-         
-                self.dut['pixel_conf'][:]  = bv_mask
-                self.dut.write_pixel_col()
-                self.dut['global_conf']['PixConfLd'] = 0b11   
-                self.dut['global_conf']['InjEnLd'] = 1
-                self.dut.write_global()
-                
-
-                bv_mask[1:] = bv_mask[0:-1] 
-                bv_mask[0] = 0
-
-                self.dut['global_conf']['vthin1Dac'] = 20
-                self.dut.write_global() 
+        scan_range = np.arange(0.0, 1.2, 0.1)
         
-                self.dut['inj'].start()
-
-                if os.environ.get('TRAVIS'):
-                    logging.debug('.')
-                    
-                pbar.update(i)
-                 
-                while not self.dut['inj'].is_done():
-                    pass
-                    
-                while not self.dut['trigger'].is_done():
-                    pass
-                
-               
-                #self.fifo_readout.print_readout_status()
-                
-            #just some time for last read
-            self.dut['trigger'].set_en(False)
-            self.dut['inj'].start()
+        for idx, k in enumerate(scan_range):
+            self.dut['INJ_HI'].set_voltage( float(k), unit='V')
             
+            bv_mask = bitarray.bitarray(lmask)
+            with self.readout(scan_param_id = idx):
+                logging.info('Scan Parameter: %f (%d of %d)', k, idx+1, len(scan_range))
+                pbar = ProgressBar(maxval=mask_steps).start()
+                for i in range(mask_steps):
+
+                    self.dut['global_conf']['vthin1Dac'] = 255
+                    self.dut.write_global()
+                    #set all InjEn to 0
+                    self.dut['pixel_conf'].setall(False)
+                    self.dut.write_pixel_col()
+                    self.dut['global_conf']['InjEnLd'] = 1
+                    self.dut['global_conf']['PixConfLd'] = 0b00              
+                    self.dut.write_global()
+                    
+             
+                    self.dut['pixel_conf'][:]  = bv_mask
+                    self.dut.write_pixel_col()
+                    self.dut['global_conf']['PixConfLd'] = 0b11   
+                    self.dut['global_conf']['InjEnLd'] = 1
+                    self.dut.write_global()
+                    
+
+                    bv_mask[1:] = bv_mask[0:-1] 
+                    bv_mask[0] = 0
+
+                    self.dut['global_conf']['vthin1Dac'] = 20
+                    self.dut.write_global() 
+            
+                    self.dut['inj'].start()
+
+                    if os.environ.get('TRAVIS'):
+                        logging.debug('.')
+                        
+                    pbar.update(i)
+                     
+                    while not self.dut['inj'].is_done():
+                        pass
+                        
+                    while not self.dut['trigger'].is_done():
+                        pass
+                    
+                   
+                    #self.fifo_readout.print_readout_status()
+                    
+                #just some time for last read
+                #self.dut['trigger'].set_en(False)
+                #self.dut['inj'].start()
+                
     def analyze(self):
         h5_filename = self.output_filename +'.h5'
         
@@ -172,12 +177,11 @@ class AnalogScan(ScanBase):
         occ_plot, H = plotting.plot_occupancy(h5_filename)
         tot_plot,_ = plotting.plot_tot_dist(h5_filename)
         lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
-
+        scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)                   
+                 
         output_file(self.output_filename + '.html', title=self.run_name)
-        save(vplot(occ_plot, tot_plot, lv1id_plot))
-            
-        return H
-        
+        save(vplot(occ_plot, tot_plot, lv1id_plot, scan_pix_hist))
+                
 if __name__ == "__main__":
 
     scan = AnalogScan()

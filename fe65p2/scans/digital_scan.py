@@ -8,9 +8,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(leve
 
 import numpy as np
 import bitarray
-from bokeh.charts import output_file, show, vplot, hplot
+from bokeh.charts import output_file, show, vplot, hplot, save
 import tables as tb
 from progressbar import ProgressBar
+import os
 
 local_configuration = {
     "mask_steps": 4,
@@ -91,7 +92,6 @@ class DigitalScan(ScanBase):
         
         with self.readout():
         
-            pbar = ProgressBar(maxval=mask_steps).start()
             for i in range(mask_steps):
 
                 self.dut['pixel_conf'][:]  = bv_mask
@@ -102,7 +102,8 @@ class DigitalScan(ScanBase):
                 
                 self.dut['testhit'].start()
                 
-                pbar.update(i)
+                if os.environ.get('TRAVIS'):
+                    logging.debug('.')
                  
                 while not self.dut['testhit'].is_done():
                     pass
@@ -115,19 +116,21 @@ class DigitalScan(ScanBase):
             self.dut['testhit'].start()
     
     def analyze(self):
-        H = None
-        with tb.open_file(self.output_filename +'.h5', 'r+') as in_file_h5:
+        h5_filename = self.output_filename +'.h5'
+        
+        with tb.open_file(h5_filename, 'r+') as in_file_h5:
             raw_data = in_file_h5.root.raw_data[:]
-    
-            hit_data = self.dut.interpret_raw_data(raw_data)
-            self.h5_file.createTable(self.h5_file.root, 'hit_data', hit_data, filters=self.filter_tables)
+            meta_data = in_file_h5.root.meta_data[:]
             
-            occ_plot, H = plotting.plot_occupancy(hit_data)
-            tot_plot,_ = plotting.plot_tot_dist(hit_data)
-            lv1id_plot, _ = plotting.plot_lv1id_dist(hit_data)
-                             
-            output_file(self.output_filename + '.html', title=self.run_name)
-            show(vplot(occ_plot, tot_plot, lv1id_plot))
+            hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
+            in_file_h5.createTable(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+            
+        occ_plot, H = plotting.plot_occupancy(h5_filename)
+        tot_plot,_ = plotting.plot_tot_dist(h5_filename)
+        lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
+
+        output_file(self.output_filename + '.html', title=self.run_name)
+        save(vplot(occ_plot, tot_plot, lv1id_plot))
             
         return H
 

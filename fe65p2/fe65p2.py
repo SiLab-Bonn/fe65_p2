@@ -131,13 +131,10 @@ class fe65p2(Dut):
             self['control']['LD'] = 0
             self['control'].write()
         
-    def interpret_raw_data(self, raw_data, meta_data = None):
+    def interpret_raw_data(self, raw_data, meta_data = []):
         data_type = {'names':['bcid','col','row','tot', 'lv1id','scan_param_id'], 'formats':['uint32','uint8','uint8','uint8','uint8', 'uint16']}
-        if meta_data == None:
-            pix_data = np.recarray((raw_data.shape[0] * 2,), dtype=data_type)
-            return _interpret_raw_data(raw_data, pix_data)
-        else:
-            ret = None
+        ret = []
+        if len(meta_data):
             param, index = np.unique(meta_data['scan_param_id'], return_index=True)
             index = index[1:]
             index = np.append(index, meta_data.shape[0])
@@ -145,15 +142,18 @@ class fe65p2(Dut):
             stops = meta_data['index_stop'][index]
             split = np.split(raw_data, stops)
             for i in range(len(split[:-1])):
-                print param[i], stops[i], len(split[i]), split[i]
+                #print param[i], stops[i], len(split[i]), split[i]
                 int_pix_data = self.interpret_raw_data(split[i])
                 int_pix_data['scan_param_id'][:] = param[i]
-                if ret == None:
-                    ret = int_pix_data
-                else:
+                if len(ret):
                     ret = np.hstack((ret, int_pix_data))
-                    
-            return ret
+                else:
+                    ret = int_pix_data
+        else:
+            pix_data = np.recarray((raw_data.shape[0] * 2,), dtype=data_type)
+            ret = _interpret_raw_data(raw_data, pix_data)
+
+        return ret
                 
     def power_up(self):
     
