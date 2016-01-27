@@ -3,7 +3,7 @@ import logging
 
 import numpy as np
 from bokeh.charts import HeatMap, bins, output_file, vplot, hplot
-from bokeh.palettes import RdYlGn6, RdYlGn9, BuPu9
+from bokeh.palettes import RdYlGn6, RdYlGn9, BuPu9, Spectral11
 from bokeh.plotting import figure
 import tables as tb
 import analysis as analysis
@@ -109,17 +109,21 @@ def scan_pix_hist(h5_file_name):
         #hm = HeatMap(data, x='scan_param', y='pixel', values='value', legend='top_right', title='s-scan', palette=BuPu9, stat=None) #, height=4100)
         
         
-        pix_scan_hist = np.empty((s_hist.shape[1],repeat_command + 20))
+        pix_scan_hist = np.empty((s_hist.shape[1],repeat_command + 10))
         for param in range(s_hist.shape[1]):
             h_count = np.bincount(s_hist[:,param])
-            h_count = h_count[:repeat_command]
-            pix_scan_hist[param] = np.pad(h_count, (0, (repeat_command + 20) - h_count.shape[0]), 'constant')
+            h_count = h_count[:repeat_command+10]
+            pix_scan_hist[param] = np.pad(h_count, (0, (repeat_command + 10) - h_count.shape[0]), 'constant')
+        
+        log_hist = np.log10(pix_scan_hist)
+        log_hist[~np.isfinite(log_hist)] = 0
         data = {
             'scan_param': np.ravel(np.indices(pix_scan_hist.shape)[0]), 
             'count': np.ravel(np.indices(pix_scan_hist.shape)[1]),
-            'value': np.ravel(pix_scan_hist)
+            'value': np.ravel(log_hist)
         }
-        hm1 = HeatMap(data, x='scan_param', y='count', values='value', legend='bottom_right', title='scan_histo', palette=BuPu9, stat=None) #, height=4100)
+        
+        hm1 = HeatMap(data, x='scan_param', y='count', values='value', title='s-scans', palette=Spectral11[::-1], stat=None, plot_width=1000) #, height=4100)
          
         mean = np.empty(64*64)
         noise = np.empty(64*64)
@@ -136,18 +140,18 @@ def scan_pix_hist(h5_file_name):
         single_scan.cross(x=x, y=yf, size=5, color="#E6550D", line_width=2)    
         
         mean[mean > scan_range_inx[-1]] = 0
-        hm2 = figure(title="Threshold [V]", plot_width=1000)
+        hm2 = figure(title="Threshold", x_axis_label = "pixel #", y_axis_label = "threshold [V]", plot_width=1000)
         hm2.diamond(y=mean, x=range(64*64), size=1, color="#1C9099", line_width=2)
         hist, edges = np.histogram(mean, density=True, bins=50)
-        p1 = figure(title="Threshold Distribution [V]")
+        p1 = figure(title="Threshold Distribution", x_axis_label = "threshold [V]")
         p1.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
         
         
-        noise[noise > 0.02] = 0 #this should be done based on 6sigma?
-        hm3 = figure(title="Noise [V]", plot_width=1000)
+        noise[noise > 0.02] = 0.02 #this should be done based on 6sigma?
+        hm3 = figure(title="Noise", x_axis_label = "pixel #", y_axis_label = "noise [V]", plot_width=1000)
         hm3.diamond(y=noise, x=range(64*64), size=2, color="#1C9099", line_width=2)
         hist, edges = np.histogram(noise, density=True, bins=50)
-        p2 = figure(title="Noise Distribution [V]")
+        p2 = figure(title="Noise Distribution", x_axis_label = "noise [V]")
         p2.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
         
         return vplot(hplot(hm2, p1), hplot(hm3,p2), hplot(hm1, single_scan) ), s_hist 
