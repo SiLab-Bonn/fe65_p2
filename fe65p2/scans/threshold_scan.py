@@ -3,6 +3,7 @@ from fe65p2.scan_base import ScanBase
 import fe65p2.plotting as  plotting
 import time
 
+  
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
@@ -14,14 +15,15 @@ from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "mask_steps": 4*64,
-    "repeat_command": 100
+    "mask_steps": 4,
+    "repeat_command": 100,
+    "scan_range": [0.05, 0.6, 0.005]
 }
 
 class AnalogScan(ScanBase):
     scan_id = "threshold_scan"
 
-    def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, **kwargs):
+    def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, scan_range = [0, 1.2, 0.1], **kwargs):
         '''Scan loop
 
         Parameters
@@ -33,17 +35,16 @@ class AnalogScan(ScanBase):
         '''
         
         #columns = [True] + [False] * 15
+        #columns = [False] +[True] + [False] + [False] * 13
 
-        #self.dut['INJ_LO'].set_voltage(0.8, unit='V')
-        #self.dut['INJ_HI'].set_voltage(1, unit='V')
-        
-        self.dut['INJ_LO'].set_voltage(0.6, unit='V')
-        self.dut['INJ_HI'].set_voltage(1.2, unit='V')
+        INJ_LO = 0.6
+        self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
+        #self.dut['INJ_HI'].set_voltage(0.6, unit='V')
         
         self.dut['global_conf']['PrmpVbpDac'] = 80
         self.dut['global_conf']['vthin1Dac'] = 255
         self.dut['global_conf']['vthin2Dac'] = 0
-        self.dut['global_conf']['vffDac'] = 30
+        self.dut['global_conf']['vffDac'] = 40
         self.dut['global_conf']['VctrCF0Dac'] = 42
         self.dut['global_conf']['VctrCF1Dac'] = 0
         self.dut['global_conf']['PrmpVbnFolDac'] = 51
@@ -65,9 +66,9 @@ class AnalogScan(ScanBase):
         #write SignLd & TDacLd to '0
         self.dut['pixel_conf'].setall(False)
         self.dut.write_pixel_col()
-        self.dut['global_conf']['SignLd'] = 1
+        self.dut['global_conf']['SignLd'] = 0
         self.dut['global_conf']['InjEnLd'] = 1
-        self.dut['global_conf']['TDacLd'] = 0b1000
+        self.dut['global_conf']['TDacLd'] = 0b1111
         self.dut['global_conf']['PixConfLd'] = 0b00
         self.dut.write_global()
        
@@ -78,7 +79,7 @@ class AnalogScan(ScanBase):
         self.dut['global_conf']['TDacLd'] = 0
         self.dut['global_conf']['PixConfLd'] = 0
         
-        self.dut['global_conf']['OneSr'] = 0 #all multi columns in parallel
+        self.dut['global_conf']['OneSr'] = 1 #all multi columns in parallel
         self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)        
         self.dut.write_global()
     
@@ -95,9 +96,10 @@ class AnalogScan(ScanBase):
         self.dut['control'].write()
                 
         #enable inj pulse and trigger
-        wiat_for_read = (16 + columns.count(True) * (4*64/mask_steps) * 2 ) * (20/2) + 100
-        self.dut['inj'].set_delay(wiat_for_read)
-        self.dut['inj'].set_width(100)
+        #wiat_for_read = (16 + columns.count(True) * (4*64/mask_steps) * 8 ) * (20/2) + 100
+
+        self.dut['inj'].set_delay(100000)
+        self.dut['inj'].set_width(1000)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
@@ -109,13 +111,15 @@ class AnalogScan(ScanBase):
         lmask = [1] + ( [0] * (mask_steps-1) )
         lmask = lmask * ( (64 * 64) / mask_steps  + 1 )
         lmask = lmask[:64*64]
-        
-        scan_range = np.arange(0.0, 1.2, 0.1)
+
+        scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
         
         for idx, k in enumerate(scan_range):
-            self.dut['INJ_HI'].set_voltage( float(k), unit='V')
+            self.dut['INJ_HI'].set_voltage( float(INJ_LO + k), unit='V')
+            time.sleep(1)
             
             bv_mask = bitarray.bitarray(lmask)
+        
             with self.readout(scan_param_id = idx):
                 logging.info('Scan Parameter: %f (%d of %d)', k, idx+1, len(scan_range))
                 pbar = ProgressBar(maxval=mask_steps).start()
@@ -125,14 +129,14 @@ class AnalogScan(ScanBase):
                     self.dut.write_global()
                     #set all InjEn to 0
                     self.dut['pixel_conf'].setall(False)
-                    self.dut.write_pixel_col()
+                    self.dut.write_pixel()
                     self.dut['global_conf']['InjEnLd'] = 1
-                    self.dut['global_conf']['PixConfLd'] = 0b00              
+                    self.dut['global_conf']['PixConfLd'] = 0b00         
                     self.dut.write_global()
                     
              
                     self.dut['pixel_conf'][:]  = bv_mask
-                    self.dut.write_pixel_col()
+                    self.dut.write_pixel()
                     self.dut['global_conf']['PixConfLd'] = 0b11   
                     self.dut['global_conf']['InjEnLd'] = 1
                     self.dut.write_global()
@@ -141,7 +145,7 @@ class AnalogScan(ScanBase):
                     bv_mask[1:] = bv_mask[0:-1] 
                     bv_mask[0] = 0
 
-                    self.dut['global_conf']['vthin1Dac'] = 20
+                    self.dut['global_conf']['vthin1Dac'] = 70
                     self.dut.write_global() 
             
                     self.dut['inj'].start()
@@ -157,12 +161,6 @@ class AnalogScan(ScanBase):
                     while not self.dut['trigger'].is_done():
                         pass
                     
-                   
-                    #self.fifo_readout.print_readout_status()
-                    
-                #just some time for last read
-                #self.dut['trigger'].set_en(False)
-                #self.dut['inj'].start()
                 
     def analyze(self):
         h5_filename = self.output_filename +'.h5'
@@ -180,10 +178,13 @@ class AnalogScan(ScanBase):
         scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)                   
                  
         output_file(self.output_filename + '.html', title=self.run_name)
-        save(vplot(occ_plot, tot_plot, lv1id_plot, scan_pix_hist))
+        save(vplot(hplot(occ_plot, tot_plot, lv1id_plot), scan_pix_hist))
                 
 if __name__ == "__main__":
 
     scan = AnalogScan()
     scan.start(**local_configuration)
     scan.analyze()
+    
+
+        

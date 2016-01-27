@@ -191,13 +191,13 @@ registers:
     arg_names   : [ value ]
     arg_add     : { 'channel': 'PWR2'}
 
-  - name        : INJ_LO
+  - name        : INJ_HI
     type        : FunctionalRegister
     hw_driver   : GPAC
     arg_names   : [ value ]
     arg_add     : { 'channel': 'INJ0'}
 
-  - name        : INJ_HI
+  - name        : INJ_LO
     type        : FunctionalRegister
     hw_driver   : GPAC
     arg_names   : [ value ]
