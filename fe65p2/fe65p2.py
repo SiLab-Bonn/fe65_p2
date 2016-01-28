@@ -161,23 +161,33 @@ class fe65p2(Dut):
         self['VDDA'].set_voltage(1.2, unit='V')
         self['VDDA'].set_enable(True)
         
-        self['VDDD'].set_current_limit(200, unit='mA')
         self['VDDD'].set_voltage(1.2, unit='V')
         self['VDDD'].set_enable(True)
         
-        self['VAUX'].set_current_limit(100, unit='mA')
         self['VAUX'].set_voltage(1.2, unit='V')
         self['VAUX'].set_enable(True)
 
     def power_status(self):
         staus = {}
        
-        staus['VAUX'] = {'I':  self['VAUX'].get_current(unit='mA'), 'V': self['VAUX'].get_voltage(unit='V') }
-        staus['VDDA'] = {'I':  self['VDDA'].get_current(unit='mA'), 'V': self['VDDA'].get_voltage(unit='V') }
-        staus['VDDD'] = {'I':  self['VDDD'].get_current(unit='mA'), 'V': self['VDDD'].get_voltage(unit='V') }
-         
-        return staus
+        staus['VDDD[V]'] =  self['VDDD'].get_voltage(unit='V')
+        staus['VDDD[mA]'] = self['VDDD'].get_current(unit='mA')
+        staus['VDDA[V]'] = self['VDDA'].get_voltage(unit='V')
+        staus['VDDA[mA]'] = self['VDDA'].get_current(unit='mA')
+        staus['VAUX[V]'] = self['VAUX'].get_voltage(unit='V')
+        staus['VAUX[mA]'] = self['VAUX'].get_current(unit='mA')
         
+        return staus
+    
+    def dac_status(self):
+        staus = {}
+
+        dac_names = ['PrmpVbpDac', 'vthin1Dac', 'vthin2Dac', 'vffDac', 'VctrCF0Dac', 'VctrCF1Dac', 'PrmpVbnFolDac', 'vbnLccDac', 'compVbnDac', 'preCompVbnDac']
+        for dac in  dac_names:
+            staus[dac] = int(str(self['global_conf'][dac]), 2)
+        
+        return staus
+
 if __name__=="__main__":
     chip = fe65p2()
     chip.init()

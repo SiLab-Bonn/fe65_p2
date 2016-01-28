@@ -5,10 +5,54 @@ import numpy as np
 from bokeh.charts import HeatMap, bins, output_file, vplot, hplot
 from bokeh.palettes import RdYlGn6, RdYlGn9, BuPu9, Spectral11
 from bokeh.plotting import figure
+from bokeh.models import LinearAxis, Range1d
+from bokeh.models import ColumnDataSource
+from bokeh.models.widgets import DataTable, DateFormatter, TableColumn
+
 import tables as tb
 import analysis as analysis
 import yaml
 
+def plot_status(h5_file_name):
+    with tb.open_file(h5_file_name, 'r') as in_file_h5:
+        kwargs = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
+        dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
+        power_status = yaml.load(in_file_h5.root.meta_data.attrs.power_status)
+
+    data = { 'nx': [], 'value': [] };
+    
+    data['nx'].append('Scan Parameters:')
+    data['value'].append('')
+        
+    for key, value in kwargs.iteritems():
+        data['nx'].append(key)
+        data['value'].append(value)
+    
+    data['nx'].append('DACs settings:')
+    data['value'].append('')
+
+    for key, value in dac_status.iteritems():
+        data['nx'].append(key)
+        data['value'].append(value)
+    
+    data['nx'].append('Power Status:')
+    data['value'].append('')
+    
+    for key, value in power_status.iteritems():
+        data['nx'].append(key)
+        data['value'].append("{:.2f}".format(value))
+        
+    source = ColumnDataSource(data)
+
+    columns = [
+            TableColumn(field="nx", title="Name"),
+            TableColumn(field="value", title="Value"),
+        ]
+    
+    data_table = DataTable(source=source, columns=columns, width=300)
+
+    return data_table
+            
 def plot_occupancy(h5_file_name):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         hit_data = in_file_h5.root.hit_data[:]
@@ -133,15 +177,18 @@ def scan_pix_hist(h5_file_name):
             mean[pix] = mu
             noise[pix] = sigma
 
-        px = 457
+        px = 1110 #1539
         single_scan = figure(title="Single pixel scan " + str(px) )
         single_scan.diamond(x=x, y=s_hist[px], size=5, color="#1C9099", line_width=2)
         yf = analysis.scurve(x, 100, mean[px], noise[px])
         single_scan.cross(x=x, y=yf, size=5, color="#E6550D", line_width=2)    
         
         mean[mean > scan_range_inx[-1]] = 0
-        hm2 = figure(title="Threshold", x_axis_label = "pixel #", y_axis_label = "threshold [V]", plot_width=1000)
+        hm2 = figure(title="Threshold", x_axis_label = "pixel #", y_axis_label = "threshold [V]", y_range=(scan_range_inx[0], scan_range_inx[-1]), plot_width=1000)
         hm2.diamond(y=mean, x=range(64*64), size=1, color="#1C9099", line_width=2)
+        hm2.extra_y_ranges = {"e": Range1d(start=scan_range_inx[0]*1000*7.6, end=scan_range_inx[-1]*1000*7.6)}
+        hm2.add_layout(LinearAxis(y_range_name="e"), 'right')
+        
         hist, edges = np.histogram(mean, density=True, bins=50)
         p1 = figure(title="Threshold Distribution", x_axis_label = "threshold [V]")
         p1.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)

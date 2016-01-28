@@ -91,6 +91,9 @@ class ScanBase(object):
         
         self.fifo_readout.print_readout_status()
         
+        self.meta_data_table.attrs.power_status = yaml.dump(self.dut.power_status())
+        self.meta_data_table.attrs.dac_status = yaml.dump(self.dut.dac_status())
+
         self.h5_file.close()
         logging.info('Data Output Filename: %s', self.output_filename + '.h5')
         
