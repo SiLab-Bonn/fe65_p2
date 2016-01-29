@@ -12,6 +12,7 @@ from bokeh.models.widgets import DataTable, DateFormatter, TableColumn
 import tables as tb
 import analysis as analysis
 import yaml
+from progressbar import ProgressBar
 
 def plot_status(h5_file_name):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
@@ -110,8 +111,8 @@ def plot_lv1id_dist(h5_file_name):
     return lv1id_plot, lv1id_count
     
 
-   
 def scan_pix_hist(h5_file_name):
+    print "AA"
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         meta_data = in_file_h5.root.meta_data[:]
         hit_data = in_file_h5.root.hit_data[:]
@@ -171,7 +172,7 @@ def scan_pix_hist(h5_file_name):
          
         mean = np.empty(64*64)
         noise = np.empty(64*64)
-        x = scan_range_inx 
+        x = scan_range_inx
         for pix in range (64*64):
             mu, sigma = analysis.fit_scurve(s_hist[pix], x)
             mean[pix] = mu
@@ -184,24 +185,34 @@ def scan_pix_hist(h5_file_name):
         single_scan.cross(x=x, y=yf, size=5, color="#E6550D", line_width=2)    
         
         mean[mean > scan_range_inx[-1]] = 0
-        hm2 = figure(title="Threshold", x_axis_label = "pixel #", y_axis_label = "threshold [V]", y_range=(scan_range_inx[0], scan_range_inx[-1]), plot_width=1000)
-        hm2.diamond(y=mean, x=range(64*64), size=1, color="#1C9099", line_width=2)
-        hm2.extra_y_ranges = {"e": Range1d(start=scan_range_inx[0]*1000*7.6, end=scan_range_inx[-1]*1000*7.6)}
-        hm2.add_layout(LinearAxis(y_range_name="e"), 'right')
-        
         hist, edges = np.histogram(mean, density=True, bins=50)
-        p1 = figure(title="Threshold Distribution", x_axis_label = "threshold [V]")
-        p1.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
         
+        hm_th = figure(title="Threshold", x_axis_label = "pixel #", y_axis_label = "threshold [V]", y_range=(scan_range_inx[0], scan_range_inx[-1]), plot_width=1000)
+        hm_th.diamond(y=mean, x=range(64*64), size=1, color="#1C9099", line_width=2)
+        hm_th.extra_y_ranges = {"e": Range1d(start=scan_range_inx[0]*1000*7.6, end=scan_range_inx[-1]*1000*7.6)}
+        hm_th.add_layout(LinearAxis(y_range_name="e"), 'right')
+        
+        plt_th_dist = figure(title="Threshold Distribution", x_axis_label = "threshold [V]")
+        plt_th_dist.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
+        plt_th_dist.extra_x_ranges = {"e": Range1d(start=edges[0]*1000*7.6, end=edges[-1]*1000*7.6)}
+        plt_th_dist.add_layout(LinearAxis(x_range_name="e"), 'above')
         
         noise[noise > 0.02] = 0.02 #this should be done based on 6sigma?
-        hm3 = figure(title="Noise", x_axis_label = "pixel #", y_axis_label = "noise [V]", plot_width=1000)
-        hm3.diamond(y=noise, x=range(64*64), size=2, color="#1C9099", line_width=2)
         hist, edges = np.histogram(noise, density=True, bins=50)
-        p2 = figure(title="Noise Distribution", x_axis_label = "noise [V]")
-        p2.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
+                
+        hm_noise = figure(title="Noise", x_axis_label = "pixel #", y_axis_label = "noise [V]", y_range=(edges[0], edges[-1]), plot_width=1000)
+        hm_noise.diamond(y=noise, x=range(64*64), size=2, color="#1C9099", line_width=2)
+        hm_noise.extra_y_ranges = {"e": Range1d(start=edges[0]*1000*7.6, end=edges[-1]*1000*7.6)}
+        hm_noise.add_layout(LinearAxis(y_range_name="e"), 'right')
         
-        return vplot(hplot(hm2, p1), hplot(hm3,p2), hplot(hm1, single_scan) ), s_hist 
+        
+        plt_noise_dist = figure(title="Noise Distribution", x_axis_label = "noise [V]")
+        plt_noise_dist.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
+        plt_noise_dist.extra_x_ranges = {"e": Range1d(start=edges[0]*1000*7.6, end=edges[-1]*1000*7.6)}
+        plt_noise_dist.add_layout(LinearAxis(x_range_name="e"), 'above')
+        
+        
+        return vplot(hplot(hm_th, plt_th_dist), hplot(hm_noise,plt_noise_dist), hplot(hm1, single_scan) ), s_hist 
     
 if __name__ == "__main__":
     pass

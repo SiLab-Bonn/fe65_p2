@@ -15,7 +15,7 @@ from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "mask_steps": 16,
+    "mask_steps": 4,
     "repeat_command": 100,
     "scan_range": [0.05, 0.6, 0.005]
 }
@@ -89,15 +89,14 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['PixConfLd'] = 0
         
         self.dut['global_conf']['OneSr'] = 0  #all multi columns in parallel
-        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
+        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray([True] * 16) #(columns)
         self.dut['global_conf']['ColSrEn'][:] = bitarray.bitarray(columns)     
         self.dut.write_global()
     
-                
         #enable inj pulse and trigger
         #wiat_for_read = (16 + columns.count(True) * (4*64/mask_steps) * 8 ) * (20/2) + 100
 
-        self.dut['inj'].set_delay(100000)
+        self.dut['inj'].set_delay(100000) #this seems to be working OK problem is probably bad injection on GPAC
         self.dut['inj'].set_width(1000)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
@@ -110,13 +109,12 @@ class ThresholdScan(ScanBase):
         lmask = [1] + ( [0] * (mask_steps-1) )
         lmask = lmask * ( (64 * 64) / mask_steps  + 1 )
         lmask = lmask[:64*64]
-        #lmask = lmask[(64-4)*64:64*64] = [0] *4*64
 
         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
         
         for idx, k in enumerate(scan_range):
             self.dut['INJ_HI'].set_voltage( float(INJ_LO + k), unit='V')
-            time.sleep(1)
+            time.sleep(0.5)
             
             bv_mask = bitarray.bitarray(lmask)
         
@@ -137,22 +135,19 @@ class ThresholdScan(ScanBase):
              
                     self.dut['pixel_conf'][:]  = bv_mask
                     self.dut.write_pixel_col()
-                    #self.dut['global_conf']['PixConfLd'] = 0b11   
                     self.dut['global_conf']['InjEnLd'] = 1
+                    #self.dut['global_conf']['PixConfLd'] = 0b11
                     self.dut.write_global()
-                    
 
                     bv_mask[1:] = bv_mask[0:-1] 
                     bv_mask[0] = 0
 
                     self.dut['global_conf']['vthin1Dac'] = 70
                     self.dut.write_global() 
-            
+                    time.sleep(0.1)
+                    
                     self.dut['inj'].start()
 
-                    if os.environ.get('TRAVIS'):
-                        logging.debug('.')
-                        
                     pbar.update(i)
                      
                     while not self.dut['inj'].is_done():
@@ -160,6 +155,7 @@ class ThresholdScan(ScanBase):
                         
                     while not self.dut['trigger'].is_done():
                         pass
+                    
                     
                 
     def analyze(self):

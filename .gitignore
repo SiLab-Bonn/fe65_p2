@@ -69,3 +69,4 @@ tests/results.xml
 tests/Makefile
 
 output_data
+*.lprof
