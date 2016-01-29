@@ -58,8 +58,6 @@ class TestSimSr(unittest.TestCase):
         self.dut['global_conf']['PrmpVbpDac'] = 36
         self.dut['global_conf']['vthin1Dac'] = 255
         self.dut['global_conf']['vthin2Dac'] = 0
-        self.dut['global_conf']['VctrCF0Dac'] = 42
-        self.dut['global_conf']['VctrCF1Dac'] = 0
         self.dut['global_conf']['PrmpVbnFolDac'] = 0
         self.dut['global_conf']['vbnLccDac'] = 51
         self.dut['global_conf']['compVbnDac'] = 25
