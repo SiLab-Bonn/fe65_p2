@@ -112,7 +112,6 @@ def plot_lv1id_dist(h5_file_name):
     
 
 def scan_pix_hist(h5_file_name):
-    print "AA"
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         meta_data = in_file_h5.root.meta_data[:]
         hit_data = in_file_h5.root.hit_data[:]
@@ -128,7 +127,7 @@ def scan_pix_hist(h5_file_name):
         param = np.unique(meta_data['scan_param_id'])
         ret = []
         for i in param:
-            wh = np.where(hit_data['scan_param_id'] == i)
+            wh = np.where(hit_data['scan_param_id'] == i) #this can be faster and multi threaded
             hd = hit_data[wh[0]]
             hits = hd['col'].astype(np.uint16)
             hits = hits * 64
@@ -174,7 +173,7 @@ def scan_pix_hist(h5_file_name):
         noise = np.empty(64*64)
         x = scan_range_inx
         for pix in range (64*64):
-            mu, sigma = analysis.fit_scurve(s_hist[pix], x)
+            mu, sigma = analysis.fit_scurve(s_hist[pix], x) #this can multi threaded
             mean[pix] = mu
             noise[pix] = sigma
 

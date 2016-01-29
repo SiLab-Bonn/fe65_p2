@@ -144,12 +144,7 @@ registers:
       - name    : vffDac
         size    : 8
         offset  : 96
-      - name    : VctrCF0Dac
-        size    : 8
-        offset  : 104
-      - name    : VctrCF1Dac
-        size    : 8
-        offset  : 112
+        
       - name    : PrmpVbnFolDac
         size    : 8
         offset  : 120

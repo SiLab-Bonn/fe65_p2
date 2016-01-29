@@ -34,7 +34,7 @@ class ThresholdScan(ScanBase):
             Number of injections.
         '''
         
-        INJ_LO = 0.6
+        INJ_LO = 0.2
         self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
         #self.dut['INJ_HI'].set_voltage(0.6, unit='V')
         
@@ -42,8 +42,6 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['vthin1Dac'] = 255
         self.dut['global_conf']['vthin2Dac'] = 0
         self.dut['global_conf']['vffDac'] = 40
-        self.dut['global_conf']['VctrCF0Dac'] = 42
-        self.dut['global_conf']['VctrCF1Dac'] = 0
         self.dut['global_conf']['PrmpVbnFolDac'] = 51
         self.dut['global_conf']['vbnLccDac'] = 1
         self.dut['global_conf']['compVbnDac'] = 25

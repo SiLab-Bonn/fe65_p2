@@ -182,7 +182,7 @@ class fe65p2(Dut):
     def dac_status(self):
         staus = {}
 
-        dac_names = ['PrmpVbpDac', 'vthin1Dac', 'vthin2Dac', 'vffDac', 'VctrCF0Dac', 'VctrCF1Dac', 'PrmpVbnFolDac', 'vbnLccDac', 'compVbnDac', 'preCompVbnDac']
+        dac_names = ['PrmpVbpDac', 'vthin1Dac', 'vthin2Dac', 'vffDac', 'PrmpVbnFolDac', 'vbnLccDac', 'compVbnDac', 'preCompVbnDac']
         for dac in  dac_names:
             staus[dac] = int(str(self['global_conf'][dac]), 2)
         
