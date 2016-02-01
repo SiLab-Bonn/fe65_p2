@@ -99,6 +99,7 @@ class DigitalScan(ScanBase):
                 bv_mask[0] = 0
                 
                 self.dut.write_pixel_col()
+                time.sleep(0.1)
                 
                 self.dut['testhit'].start()
                 
