@@ -12,6 +12,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 import os
 import numpy as np
 import time
+import bitarray
 
 from numba import jit, njit
 
@@ -21,6 +22,13 @@ def _interpret_raw_data(data, pix_data):
     prev_bcid = 0
     bcid = 0
     lv1id = 0
+    
+    col = 0
+    row = 0
+    rowp = 0
+    totB = 0
+    totT = 0
+    
     for inx in range(data.shape[0]):
         if (data[inx] & 0x800000):
             bcid = data[inx] & 0x7fffff
@@ -33,25 +41,62 @@ def _interpret_raw_data(data, pix_data):
             col = (data[inx] & 0b111100000000000000000) >> 17
             row = (data[inx] & 0b11111100000000000) >>11
             rowp = (data[inx] & 0b10000000000) >> 10
-            tot1 = (data[inx] & 0b11110000) >> 4
-            tot0 = (data[inx] & 0b1111)
+            totB = (data[inx] & 0b11110000) >> 4
+            totT = (data[inx] & 0b1111)
             
-            # !!! THIS MAPPING MAY BE WRONG !!! 
-            if(tot0 != 15):
-                pix_data[irec].bcid = bcid
-                pix_data[irec].lv1id = lv1id
-                pix_data[irec].row = (row % 32) * 2 + rowp
-                pix_data[irec].col = col * 4 + (row / 32) * 2 
-                pix_data[irec].tot = tot0
-                irec += 1
+            #print col, row, rowp, totT, totB
+            
+            #| rowp = 1 | rowp = 0 |
+            #| totL_T   | totR_T   |
+            #| totL_B   | totR_B   |
+            
+            if rowp == 1:
+                if(totT != 15):
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2 + 1
+                    else:
+                        pix_data[irec].row = 63 -((row % 32) * 2)
+                    pix_data[irec].col = col * 4 + (row / 32) * 2 
+                    pix_data[irec].tot = totT
+                    irec += 1
 
-            if(tot1 != 15):
-                pix_data[irec].bcid = bcid
-                pix_data[irec].lv1id = lv1id
-                pix_data[irec].row = (row % 32) * 2 + rowp
-                pix_data[irec].col = col * 4 + 1 + (row / 32) * 2
-                pix_data[irec].tot = tot1
-                irec += 1
+                if(totB != 15):
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2 + 1)
+                    
+                    pix_data[irec].col = col * 4 + (row / 32) * 2
+                    
+                    pix_data[irec].tot = totB
+                    irec += 1
+            else:
+                if(totT != 15):
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2 + 1
+                    else:
+                        pix_data[irec].row = 63 - (row % 32) * 2
+                    pix_data[irec].col = col * 4 + (row / 32) * 2 + 1
+                    pix_data[irec].tot = totT
+                    irec += 1
+                    
+                if(totB != 15):
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2 +1)
+                        
+                    pix_data[irec].col = col * 4 + (row / 32) * 2 + 1
+                    pix_data[irec].tot = totB
+                    irec += 1
             
     return pix_data[:irec]
     
@@ -85,8 +130,44 @@ class fe65p2(Dut):
         while not self['global_conf'].is_ready:
             pass
     
-    def write_pixel(self, ld = False):
+    def mask_sr(self, mask):
+        """
+        63 -> 124    63(127) -> 126  |  63(191) -> 0(128)     63(255) -> 2(130)
+        62 -> 125    62(126) -> 127  |  62(190) -> 1(129)     62(254) -> 3(131)
+                                        61(189) -> 4(132)     61(253) -> 6(134)
+        3 -> 4       3(67)   -> 6    |  60(187) -> 5(133)     60(252) -> 7(135)
+        2 -> 5       2(66)   -> 7    |  
+        1 -> 0       1(65)   -> 2    |  1(129) -> 124(252)       1(193) -> 126(254)
+        0 -> 1       0(64)   -> 3    |  0(128) -> 125(253)       0(192) -> 127(255)
+        
+        """
+        conf_array_mcol = np.reshape(mask, (16,64*4))
+        mask = np.empty([16,64*4], dtype = np.int)
+        
+        for mcol in range(16):
+            for i in range(256):
+                if( i<64 ):
+                    o =  (i - 1) * 2 + 3 * ((i + 1) % 2)  #(i - 1) * 2 #o = 1 + i/2
+                elif (i<128):
+                    o = (i - 64) * 2  + 3  * ((i - 64 + 1) % 2)
+                elif (i<192):
+                    o = 125 - (( (i-128)/2 ) * 4 + (i-128) % 2 ) + 128
+                else:
+                    o = 127 - (( (i-192)/2 ) * 4 + (i-192) % 2 ) + 128
+                
+                mask[mcol][o] =  conf_array_mcol[mcol][i]
+
+
+        mask_1d =  np.ravel(mask)
+        lmask = mask_1d.tolist()
+        bv_mask = bitarray.bitarray(lmask)
+        return bv_mask
+            
+    def write_pixel(self, mask = np.empty( (0, 0) ), ld = False):
     
+        if mask.any():
+            self['pixel_conf'][:]  = self.mask_sr(mask)
+                
         #pixels in multi_column
         self['pixel_conf'].set_size(16*4*64)
     
@@ -152,7 +233,6 @@ class fe65p2(Dut):
         else:
             pix_data = np.recarray((raw_data.shape[0] * 2,), dtype=data_type)
             ret = _interpret_raw_data(raw_data, pix_data)
-
         return ret
                 
     def power_up(self):
