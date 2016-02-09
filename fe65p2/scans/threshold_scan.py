@@ -17,13 +17,16 @@ import os
 local_configuration = {
     "mask_steps": 4,
     "repeat_command": 100,
-    "scan_range": [0.05, 0.6, 0.005]
+    "scan_range": [0.0, 0.6, 0.01],
+    "vthin1Dac": 70,
+    "preCompVbnDac" : 110,
+    #"mask_filename": './output_data/noise_scan_01.h5'
 }
 
 class ThresholdScan(ScanBase):
     scan_id = "threshold_scan"
 
-    def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, scan_range = [0, 1.2, 0.1], **kwargs):
+    def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, scan_range = [0, 1.2, 0.1], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
         '''Scan loop
 
         Parameters
@@ -36,7 +39,6 @@ class ThresholdScan(ScanBase):
         
         INJ_LO = 0.2
         self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
-        #self.dut['INJ_HI'].set_voltage(0.6, unit='V')
         
         self.dut['global_conf']['PrmpVbpDac'] = 80
         self.dut['global_conf']['vthin1Dac'] = 255
@@ -50,6 +52,7 @@ class ThresholdScan(ScanBase):
         self.dut.write_global() 
         self.dut['control']['RESET'] = 0b01
         self.dut['control']['DISABLE_LD'] = 0
+        self.dut['control']['PIX_D_CONF'] = 0
         self.dut['control'].write()
         
         self.dut['control']['CLK_OUT_GATE'] = 1
@@ -60,7 +63,6 @@ class ThresholdScan(ScanBase):
         self.dut['control']['RESET'] = 0b11
         self.dut['control'].write()
 
-        
         #write InjEnLd & PixConfLd to '1
         self.dut['pixel_conf'].setall(True)
         self.dut.write_pixel_col()
@@ -75,7 +77,7 @@ class ThresholdScan(ScanBase):
         self.dut.write_pixel_col()
         self.dut['global_conf']['SignLd'] = 0
         self.dut['global_conf']['InjEnLd'] = 1
-        self.dut['global_conf']['TDacLd'] = 0b1111
+        self.dut['global_conf']['TDacLd'] = 0b1000
         self.dut['global_conf']['PixConfLd'] = 0b00
         self.dut.write_global()
        
@@ -91,8 +93,21 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['ColSrEn'][:] = bitarray.bitarray(columns)     
         self.dut.write_global()
     
-        #enable inj pulse and trigger
-        #wiat_for_read = (16 + columns.count(True) * (4*64/mask_steps) * 8 ) * (20/2) + 100
+        if mask_filename:
+            logging.info('Using pixel mask from file: %s', mask_filename)
+            
+            self.dut['global_conf']['OneSr'] = 1  
+            self.dut.write_global()
+            
+            with tb.open_file(mask_filename, 'r') as in_file_h5:
+                mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
+                mask_en = in_file_h5.root.scan_results.en_mask[:]
+
+            self.dut.write_en_mask(mask_en)
+            self.dut.write_tune_mask(mask_tdac)
+                
+            self.dut['global_conf']['OneSr'] = 0
+            self.dut.write_global()
 
         self.dut['inj'].set_delay(100000) #this seems to be working OK problem is probably bad injection on GPAC
         self.dut['inj'].set_width(1000)
@@ -122,15 +137,10 @@ class ThresholdScan(ScanBase):
                 for i in range(mask_steps):
 
                     self.dut['global_conf']['vthin1Dac'] = 255
+                    self.dut['global_conf']['preCompVbnDac'] = 50
                     self.dut.write_global()
-                    #set all InjEn to 0
-                    self.dut['pixel_conf'].setall(False)
-                    self.dut.write_pixel_col()
-                    self.dut['global_conf']['InjEnLd'] = 1
-                    #self.dut['global_conf']['PixConfLd'] = 0b00         
-                    self.dut.write_global()
+                    time.sleep(0.1)
                     
-             
                     self.dut['pixel_conf'][:]  = bv_mask
                     self.dut.write_pixel_col()
                     self.dut['global_conf']['InjEnLd'] = 1
@@ -140,7 +150,8 @@ class ThresholdScan(ScanBase):
                     bv_mask[1:] = bv_mask[0:-1] 
                     bv_mask[0] = 0
 
-                    self.dut['global_conf']['vthin1Dac'] = 70
+                    self.dut['global_conf']['vthin1Dac'] = vthin1Dac
+                    self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
                     self.dut.write_global() 
                     time.sleep(0.1)
                     

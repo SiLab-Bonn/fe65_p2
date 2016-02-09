@@ -142,7 +142,7 @@ class fe65p2(Dut):
         
         """
         conf_array_mcol = np.reshape(mask, (16,64*4))
-        mask = np.empty([16,64*4], dtype = np.int)
+        mask = np.empty([16,64*4], dtype = np.bool)
         
         for mcol in range(16):
             for i in range(256):
@@ -211,7 +211,43 @@ class fe65p2(Dut):
             self['control'].write()
             self['control']['LD'] = 0
             self['control'].write()
+    
+    def write_en_mask(self, mask):
+            self.write_pixel(mask)
+            self['global_conf']['PixConfLd'] = 0b11
+            self.write_global()
+            self['global_conf']['PixConfLd'] = 0b00
         
+    def write_tune_mask(self, mask):
+            # 0  -> Sign = 1, TDac = 15 1111(lowest) 
+            # ...
+            # 15 -> Sign = 1, TDac = 0  0000
+            # 16 -> Sign = 0, TDac = 0  0000
+            # ...
+            # 31 -> Sign = 0, TDac = 15 1111
+
+            mask_out = np.copy(mask)
+            mask_bits = np.unpackbits(mask_out)
+            mask_bits_array = np.reshape(mask_bits, (64,64,8))
+            mask_out[mask_bits_array[:,:,3] == 0] = 15 - mask_out[mask_bits_array[:,:,3] == 0]
+            
+            mask_bits = np.unpackbits(mask_out)
+            mask_bits_array = np.reshape(mask_bits, (64,64,8)).astype(np.bool)
+            mask_bits_array[:,:,3] = ~mask_bits_array[:,:,3]
+            
+            for bit in range(4):
+                mask_bits_sel = mask_bits_array[:,:,7-bit]
+                self.write_pixel(mask_bits_sel)
+                self['global_conf']['TDacLd'][bit] = 1
+                self.write_global()
+                self['global_conf']['TDacLd'][bit] = 0
+            
+            mask_bits_sel = mask_bits_array[:,:,3]
+            self.write_pixel(mask_bits_sel)
+            self['global_conf']['SignLd'] = 1
+            self.write_global()
+            self['global_conf']['SignLd'] = 0
+            
     def interpret_raw_data(self, raw_data, meta_data = []):
         data_type = {'names':['bcid','col','row','tot', 'lv1id','scan_param_id'], 'formats':['uint32','uint8','uint8','uint8','uint8', 'uint16']}
         ret = []

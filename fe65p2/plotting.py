@@ -111,7 +111,7 @@ def plot_lv1id_dist(h5_file_name):
     return lv1id_plot, lv1id_count
     
 
-def scan_pix_hist(h5_file_name):
+def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         meta_data = in_file_h5.root.meta_data[:]
         hit_data = in_file_h5.root.hit_data[:]
@@ -177,7 +177,7 @@ def scan_pix_hist(h5_file_name):
             mean[pix] = mu
             noise[pix] = sigma
 
-        px = 1110 #1539
+        px = scurve_sel_pix #1110 #1539
         single_scan = figure(title="Single pixel scan " + str(px) )
         single_scan.diamond(x=x, y=s_hist[px], size=5, color="#1C9099", line_width=2)
         yf = analysis.scurve(x, 100, mean[px], noise[px])
@@ -191,7 +191,7 @@ def scan_pix_hist(h5_file_name):
         hm_th.extra_y_ranges = {"e": Range1d(start=scan_range_inx[0]*1000*7.6, end=scan_range_inx[-1]*1000*7.6)}
         hm_th.add_layout(LinearAxis(y_range_name="e"), 'right')
         
-        plt_th_dist = figure(title="Threshold Distribution", x_axis_label = "threshold [V]")
+        plt_th_dist = figure(title="Threshold Distribution", x_axis_label = "threshold [V]", y_range=(0, 1.1*np.max(hist[1:])))
         plt_th_dist.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
         plt_th_dist.extra_x_ranges = {"e": Range1d(start=edges[0]*1000*7.6, end=edges[-1]*1000*7.6)}
         plt_th_dist.add_layout(LinearAxis(x_range_name="e"), 'above')
@@ -199,13 +199,13 @@ def scan_pix_hist(h5_file_name):
         noise[noise > 0.02] = 0.02 #this should be done based on 6sigma?
         hist, edges = np.histogram(noise, density=True, bins=50)
                 
-        hm_noise = figure(title="Noise", x_axis_label = "pixel #", y_axis_label = "noise [V]", y_range=(edges[0], edges[-1]), plot_width=1000)
+        hm_noise = figure(title="Noise", x_axis_label = "pixel #", y_axis_label = "noise [V]", y_range=(0, edges[-1]), plot_width=1000)
         hm_noise.diamond(y=noise, x=range(64*64), size=2, color="#1C9099", line_width=2)
-        hm_noise.extra_y_ranges = {"e": Range1d(start=edges[0]*1000*7.6, end=edges[-1]*1000*7.6)}
+        hm_noise.extra_y_ranges = {"e": Range1d(start=0, end=edges[-1]*1000*7.6)}
         hm_noise.add_layout(LinearAxis(y_range_name="e"), 'right')
         
         
-        plt_noise_dist = figure(title="Noise Distribution", x_axis_label = "noise [V]")
+        plt_noise_dist = figure(title="Noise Distribution", x_axis_label = "noise [V]", y_range=(0, 1.1*np.max(hist[1:])))
         plt_noise_dist.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564", line_color="#033649",)
         plt_noise_dist.extra_x_ranges = {"e": Range1d(start=edges[0]*1000*7.6, end=edges[-1]*1000*7.6)}
         plt_noise_dist.add_layout(LinearAxis(x_range_name="e"), 'above')
