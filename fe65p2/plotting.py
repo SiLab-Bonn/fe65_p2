@@ -8,6 +8,8 @@ from bokeh.plotting import figure
 from bokeh.models import LinearAxis, Range1d
 from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import DataTable, DateFormatter, TableColumn
+from scipy.optimize import curve_fit
+from scipy.special import erf
 
 import tables as tb
 import analysis as analysis
