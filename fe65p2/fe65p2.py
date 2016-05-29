@@ -11,7 +11,7 @@ import logging
 logging.getLogger().setLevel(logging.DEBUG)
 import os
 import numpy as np
-import time
+import time 
 import bitarray
 
 from numba import jit, njit
@@ -163,10 +163,11 @@ class fe65p2(Dut):
         bv_mask = bitarray.bitarray(lmask)
         return bv_mask
             
-    def write_pixel(self, mask = np.empty( (0, 0) ), ld = False):
+    def write_pixel(self, mask = None, ld = False):
     
-        if mask.any():
-            self['pixel_conf'][:]  = self.mask_sr(mask)
+        if mask is not None:
+            mask_gen = self.mask_sr(mask)
+            self['pixel_conf'][:]  = mask_gen
                 
         #pixels in multi_column
         self['pixel_conf'].set_size(16*4*64)
@@ -225,7 +226,7 @@ class fe65p2(Dut):
             # 16 -> Sign = 0, TDac = 0  0000
             # ...
             # 31 -> Sign = 0, TDac = 15 1111
-
+            
             mask_out = np.copy(mask)
             mask_bits = np.unpackbits(mask_out)
             mask_bits_array = np.reshape(mask_bits, (64,64,8))
@@ -234,7 +235,7 @@ class fe65p2(Dut):
             mask_bits = np.unpackbits(mask_out)
             mask_bits_array = np.reshape(mask_bits, (64,64,8)).astype(np.bool)
             mask_bits_array[:,:,3] = ~mask_bits_array[:,:,3]
-            
+             
             for bit in range(4):
                 mask_bits_sel = mask_bits_array[:,:,7-bit]
                 self.write_pixel(mask_bits_sel)
