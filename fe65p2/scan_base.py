@@ -39,6 +39,11 @@ class ScanBase(object):
         self.output_filename = os.path.join(self.working_dir, self.run_name)
         
     def start(self, **kwargs):
+                
+        fh = logging.FileHandler(self.output_filename + '.log')
+        fh.setLevel(logging.DEBUG)
+        logger = logging.getLogger()
+        logger.addHandler(fh)
         
         self._first_read = False
         self.scan_param_id = 0
@@ -94,6 +99,8 @@ class ScanBase(object):
 
         self.h5_file.close()
         logging.info('Data Output Filename: %s', self.output_filename + '.h5')
+        
+        logger.removeHandler(fh)
         
     def analyze(self):
         raise NotImplementedError('ScanBase.analyze() not implemented')
