@@ -15,18 +15,17 @@ from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "mask_steps": 4,
-    "repeat_command": 100,
-    "scan_range": [0.05, 0.6, 0.5],
     "stop_pixel_count": 4,
+    "vthin2Dac" : 0,
+    "vthin1Dac" : 130,
     "columns": [True] * 2 + [False] * 14,
-    "preCompVbnDac": 110
+    "preCompVbnDac": 115
 }
 
 class NoiseScan(ScanBase):
     scan_id = "noise_scan"
 
-    def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, scan_range = [0, 1.2, 0.1], stop_pixel_count = 4, preCompVbnDac = 110, **kwargs):
+    def scan(self, columns = [True] * 16, stop_pixel_count = 4, preCompVbnDac = 110,  vthin2Dac = 0, vthin1Dac = 120, **kwargs):
         '''Scan loop
 
         Parameters
@@ -45,7 +44,7 @@ class NoiseScan(ScanBase):
         self.dut['global_conf']['PrmpVbpDac'] = 80
         self.dut['global_conf']['vthin1Dac'] = 255
         self.dut['global_conf']['vthin2Dac'] = 0
-        self.dut['global_conf']['vffDac'] = 40
+        self.dut['global_conf']['vffDac'] = 24
         self.dut['global_conf']['PrmpVbnFolDac'] = 51
         self.dut['global_conf']['vbnLccDac'] = 1
         self.dut['global_conf']['compVbnDac'] = 25
@@ -128,7 +127,7 @@ class NoiseScan(ScanBase):
 
         idx = 0
         finished = False
-        vthin1Dac = 120
+        
         vthin1DacInc = 1
         mask_disable_count = 0
         iteration = 0
@@ -137,6 +136,7 @@ class NoiseScan(ScanBase):
             with self.readout(scan_param_id = vthin1Dac, fill_buffer = True, clear_buffer = True):
 
                 self.dut['global_conf']['vthin1Dac'] = vthin1Dac
+                self.dut['global_conf']['vthin2Dac'] = vthin2Dac
                 self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
                 self.dut.write_global() 
                 time.sleep(0.1)
@@ -155,6 +155,7 @@ class NoiseScan(ScanBase):
              
 
             self.dut['global_conf']['vthin1Dac'] = 255
+            self.dut['global_conf']['vthin2Dac'] = 0
             self.dut['global_conf']['preCompVbnDac'] = 50
             self.dut.write_global() 
             
