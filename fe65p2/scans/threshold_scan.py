@@ -2,6 +2,7 @@
 from fe65p2.scan_base import ScanBase
 import fe65p2.plotting as  plotting
 import time
+import fe65p2.analysis as analysis
 
   
 import logging
@@ -18,10 +19,10 @@ local_configuration = {
     "mask_steps": 4,
     "repeat_command": 100,
     "scan_range": [0.0, 0.2, 0.002],
-    "vthin1Dac": 40,
+    "vthin1Dac": 22,
     "preCompVbnDac" : 115,
     "columns" : [True] * 2 + [False] * 14,
-    #"mask_filename": './output_data/noise_scan.h5'
+    "mask_filename": ''
 }
 
 class ThresholdScan(ScanBase):
@@ -29,7 +30,6 @@ class ThresholdScan(ScanBase):
 
     def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, scan_range = [0, 1.2, 0.1], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
         '''Scan loop
-
         Parameters
         ----------
         mask : int
@@ -174,21 +174,20 @@ class ThresholdScan(ScanBase):
             
             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
             in_file_h5.createTable(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
-           
+
+        analysis.analyze_threshold_scan(h5_filename)
         status_plot = plotting.plot_status(h5_filename)
         occ_plot, H = plotting.plot_occupancy(h5_filename)
         tot_plot,_ = plotting.plot_tot_dist(h5_filename)
         lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
-        scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)                   
+        scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)
+        t_dac = plotting.t_dac_plot(h5_filename)
                  
         output_file(self.output_filename + '.html', title=self.run_name)
-        save(vplot(hplot(occ_plot, tot_plot, lv1id_plot), scan_pix_hist, status_plot))
+        save(vplot(hplot(occ_plot, tot_plot, lv1id_plot), scan_pix_hist, t_dac, status_plot))
                 
 if __name__ == "__main__":
 
     scan = ThresholdScan()
     scan.start(**local_configuration)
     scan.analyze()
-    
-
-        

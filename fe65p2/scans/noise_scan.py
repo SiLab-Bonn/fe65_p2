@@ -1,4 +1,3 @@
-
 from fe65p2.scan_base import ScanBase
 import fe65p2.plotting as  plotting
 import time
@@ -27,7 +26,6 @@ class NoiseScan(ScanBase):
 
     def scan(self, columns = [True] * 16, stop_pixel_count = 4, preCompVbnDac = 110,  vthin2Dac = 0, vthin1Dac = 120, **kwargs):
         '''Scan loop
-
         Parameters
         ----------
         mask : int
@@ -120,9 +118,7 @@ class NoiseScan(ScanBase):
         self.dut['trigger'].set_width(1) #try single
         self.dut['trigger'].set_repeat(100000)
         self.dut['trigger'].set_en(False)
-        
-        scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
-        
+
         np.set_printoptions(linewidth=150)
 
         idx = 0
@@ -202,7 +198,11 @@ class NoiseScan(ScanBase):
             self.dut.write_tune_mask(mask_tdac)
             
             iteration += 1
-         
+
+        self.dut['global_conf']['vthin1Dac'] = vthin1Dac
+        self.dut['global_conf']['vthin2Dac'] = vthin2Dac
+        self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
+
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Results')
         self.h5_file.createCArray(scan_results, 'tdac_mask', obj=mask_tdac)
         self.h5_file.createCArray(scan_results, 'en_mask', obj=mask_en)
@@ -221,16 +221,14 @@ class NoiseScan(ScanBase):
         occ_plot, H = plotting.plot_occupancy(h5_filename)
         tot_plot,_ = plotting.plot_tot_dist(h5_filename)
         lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
+        t_dac = plotting.t_dac_plot(h5_filename)
         #scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)                   
                  
         output_file(self.output_filename + '.html', title=self.run_name)
-        save(vplot(hplot(occ_plot, tot_plot, lv1id_plot), status_plot))
+        save(vplot(hplot(occ_plot, tot_plot, lv1id_plot), t_dac, status_plot))
                 
 if __name__ == "__main__":
 
     scan = NoiseScan()
     scan.start(**local_configuration)
     scan.analyze()
-    
-
-        
