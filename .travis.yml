@@ -28,7 +28,7 @@ install:
   - git clone https://github.com/potentialventures/cocotb.git
   - export COCOTB=$(pwd)/cocotb
 
-  - git clone -b v2.4.1 https://github.com/SiLab-Bonn/basil; cd basil; python setup.py develop; cd ..;
+  - git clone -b v2.4.3 https://github.com/SiLab-Bonn/basil; cd basil; python setup.py develop; cd ..;
 
   # Install basil
   - python setup.py develop
