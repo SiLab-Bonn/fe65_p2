@@ -30,7 +30,7 @@ class proofread_scan(ScanBase):
 	def scan(self, mask_steps=4, columns=[True] * 16, **kwargs):
 #		bitfiles = ["fe65p2_mio_40MHz.bit"]
 #		voltages = [2.0]
-		path = "/home/carlo/fe65_p2/firmware/ise/"
+		path = "/home/carlo/fe65_p2/firmware/ise/proofr_scan_bits/"
 		self.bitfiles = ["fe65p2_mio_1MHz.bit", "fe65p2_mio_2MHz.bit","fe65p2_mio_5MHz.bit", "fe65p2_mio_10MHz.bit", "fe65p2_mio_20MHz.bit","fe65p2_mio_40MHz.bit"]
 		self.voltages = [2.0, 1.8, 1.6, 1.4, 1.2, 1.0, 0.9, 0.85]
 
@@ -162,7 +162,8 @@ class proofread_scan(ScanBase):
 						edgecolor='none', facecolor='none')
 		# Column Labels...
 		for j in range(len(self.bitfiles)):
-			tb.add_cell(nrows+1, j, width, height/2, text=self.bitfiles[j][-9:-7]+' MHz', loc='center',
+			freq_label = self.bitfiles[j][-9:-7].translate(None, '_')
+			tb.add_cell(nrows+1, j, width, height/2, text=freq_label+' MHz', loc='center',
 							   edgecolor='none', facecolor='none')
 		ax.add_table(tb)
 		shmoopdf.savefig()
@@ -187,7 +188,8 @@ class proofread_scan(ScanBase):
 						edgecolor='none', facecolor='none')
 		# Column Labels...
 		for j in range(len(self.bitfiles)):
-			tb_g.add_cell(nrows+1, j, width, height/2, text=self.bitfiles[j][-9:-7]+' MHz', loc='center',
+			freq_label = self.bitfiles[j][-9:-7].translate(None, '_')
+			tb_g.add_cell(nrows+1, j, width, height/2, text=freq_label+' MHz', loc='center',
 							   edgecolor='none', facecolor='none')
 		ax_g.add_table(tb_g)
 		shmoopdf.savefig()

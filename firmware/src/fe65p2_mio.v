@@ -146,16 +146,13 @@ module fe65p2_mio (
     (* KEEP = "{TRUE}" *) 
     wire CLK160;
     (* KEEP = "{TRUE}" *) 
-    wire CLK80;
-    (* KEEP = "{TRUE}" *) 
-    reg CLK40;
+    wire CLK40;
     (* KEEP = "{TRUE}" *) 
     wire CLK16;
     (* KEEP = "{TRUE}" *) 
     wire BUS_CLK;
     (* KEEP = "{TRUE}" *) 
     wire CLK8;
-    
     (* KEEP = "{TRUE}" *) 
     wire CLK1;
     
@@ -175,17 +172,13 @@ module fe65p2_mio (
         .CLKIN(FCLK_IN),
         .BUS_CLK(BUS_CLK),
         .U1_CLK8(CLK8),
-        .U2_CLK40(CLK80),
+        .U2_CLK40(CLK40),
         .U2_CLK16(CLK16),
         .U2_CLK160(CLK160),
         .U2_CLK320(CLK320),
         .U2_LOCKED(CLK_LOCKED)
     );
 
-    initial CLK40 = 0;
-    
-    always@(posedge CLK80)
-        CLK40 <= !CLK40;
     
     wire BUS_RST;
     reset_gen ireset_gen(.CLK(BUS_CLK), .RST(BUS_RST));
@@ -229,9 +222,9 @@ module fe65p2_mio (
     assign #1000 DUT_RESET = GPIO_OUT[1:0];
     ODDR clk_bx_gate(.D1(GPIO_OUT[2]), .D2(1'b0), .C(CLK40), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_BX) );
     ODDR clk_out_gate(.D1(GPIO_OUT[6]), .D2(1'b0), .C(CLK160), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_DATA) );
-    
-    //ODDR clk_bx_gate(.D1(1'b1), .D2(1'b0), .C(CLK8), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_BX) );
-    //ODDR clk_out_gate(.D1(GPIO_OUT[6]), .D2(1'b0), .C(CLK80), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(DUT_CLK_DATA) );
+	 ODDR clk_data_gate(.D1(1'b1), .D2(1'b0), .C(CLK160), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(LEMO_TX[0]) );
+	 ODDR clk_pollo_gate(.D1(1'b1), .D2(1'b0), .C(CLK40), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(LEMO_TX[1]) );
+    ODDR clk_cane_gate(.D1(1'b1), .D2(1'b0), .C(CLK8), .CE(1'b1), .R(1'b0), .S(1'b0), .Q(LEMO_TX[2]) );
     
     assign DUT_PIX_D_CONF = GPIO_OUT[3];
     wire GATE_EN_PIX_SR_CNFG;
@@ -255,7 +248,7 @@ module fe65p2_mio (
         .BUS_RD(BUS_RD),
         .BUS_WR(BUS_WR),
     
-        .SPI_CLK(CLK1),
+        .SPI_CLK(CLK8),
     
         .SCLK(SCLK),
         .SDI(SDI),
@@ -394,7 +387,7 @@ module fe65p2_mio (
         .BUS_RD(BUS_RD),
         .BUS_WR(BUS_WR)
     );
-    
+    /*
     tdc_s3 #(
         .BASEADDR(TDC_BASEADDR),
         .HIGHADDR(TDC_HIGHADDR),
@@ -427,8 +420,10 @@ module fe65p2_mio (
         
         .TIMESTAMP(16'b0)
     );
+    */
     
-    
+	 assign TDC_FIFO_EMPTY = 1;
+	 
     wire USB_READ;
     assign USB_READ = FREAD & FSTROBE;
     
@@ -492,7 +487,6 @@ module fe65p2_mio (
     assign LED[3] = RX_READY & ((RX_8B10B_DECODER_ERR? CLK_3HZ : CLK_1HZ) | RX_FIFO_OVERFLOW_ERR | RX_FIFO_FULL);
     assign LED[4] = (CLK_1HZ | FIFO_FULL) & CLK_LOCKED;
     
-    assign LEMO_TX = 3'b000;
     
     
     /*

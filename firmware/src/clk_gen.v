@@ -5,7 +5,19 @@
  * ------------------------------------------------------------
  */
  
- `timescale 1ns / 1ps
+
+
+`ifndef DV1
+	`define DV1 6
+	`define FX1_d 3
+	`define FX1_m 10
+	`define FX2_d 4
+	`define FX2_m 2
+	`define prd 6.25
+`endif	 
+
+`timescale 1ns / 1ps
+ 
 module clk_gen(
     input wire CLKIN,
     output wire BUS_CLK,
@@ -34,10 +46,10 @@ module clk_gen(
     wire U1_LOCKED;
 
    DCM #(
-         .CLKDV_DIVIDE(6), // Divide by: 1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5
+         .CLKDV_DIVIDE(`DV1), // Divide by: 1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5
          // 7.0,7.5,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0 or 16.0
-         .CLKFX_DIVIDE(3), // Can be any Integer from 1 to 32
-         .CLKFX_MULTIPLY(10), // Can be any Integer from 2 to 32
+         .CLKFX_DIVIDE(`FX1_d), // Can be any Integer from 1 to 32
+         .CLKFX_MULTIPLY(`FX1_m), // Can be any Integer from 2 to 32
          .CLKIN_DIVIDE_BY_2("FALSE"), // TRUE/FALSE to enable CLKIN divide by two feature
          .CLKIN_PERIOD(20.833), // Specify period of input clock
          .CLKOUT_PHASE_SHIFT("NONE"), // Specify phase shift of NONE, FIXED or VARIABLE
@@ -82,10 +94,10 @@ module clk_gen(
    DCM #(
          .CLKDV_DIVIDE(10), // Divide by: 1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5
          // 7.0,7.5,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0 or 16.0
-         .CLKFX_DIVIDE(8), // Can be any Integer from 1 to 32
-         .CLKFX_MULTIPLY(4), // Can be any Integer from 2 to 32
+         .CLKFX_DIVIDE(`FX2_d), // Can be any Integer from 1 to 32
+         .CLKFX_MULTIPLY(`FX2_m), // Can be any Integer from 2 to 32
          .CLKIN_DIVIDE_BY_2("FALSE"), // TRUE/FALSE to enable CLKIN divide by two feature
-         .CLKIN_PERIOD(12.5), // Specify period of input clock
+         .CLKIN_PERIOD(`prd), // Specify period of input clock
          .CLKOUT_PHASE_SHIFT("NONE"), // Specify phase shift of NONE, FIXED or VARIABLE
          .CLK_FEEDBACK("1X"), // Specify clock feedback of NONE, 1X or 2X
          .DESKEW_ADJUST("SYSTEM_SYNCHRONOUS"), // SOURCE_SYNCHRONOUS, SYSTEM_SYNCHRONOUS or
