@@ -11,7 +11,7 @@
 	`define DV1 6
 	`define FX1_d 3
 	`define FX1_m 10
-	`define FX2_d 4
+	`define FX2_d 8
 	`define FX2_m 2
 	`define prd 6.25
 `endif	 

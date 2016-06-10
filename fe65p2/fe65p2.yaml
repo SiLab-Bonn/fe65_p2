@@ -36,6 +36,11 @@ hw_drivers:
 #    type      : fast_spi_rx
 #    interface : intf
 #    base_addr : 0x12000
+
+  - name      : tdc
+    type      : tdc_s3
+    interface : intf
+    base_addr : 0x19000
     
   - name      : trigger
     type      : pulse_gen
