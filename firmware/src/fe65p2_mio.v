@@ -387,7 +387,7 @@ module fe65p2_mio (
         .BUS_RD(BUS_RD),
         .BUS_WR(BUS_WR)
     );
-    /*
+    
     tdc_s3 #(
         .BASEADDR(TDC_BASEADDR),
         .HIGHADDR(TDC_HIGHADDR),
@@ -420,10 +420,7 @@ module fe65p2_mio (
         
         .TIMESTAMP(16'b0)
     );
-    */
     
-	 assign TDC_FIFO_EMPTY = 1;
-	 
     wire USB_READ;
     assign USB_READ = FREAD & FSTROBE;
     
