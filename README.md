@@ -12,8 +12,3 @@ Use [conda](http://conda.pydata.org) for python. See [.travis.yml](https://githu
 ```
 python fe65p2/scans/digital_scan.py
 ```
-
-## TODO
-- hdf5 file storage for configuration and status (attibutes)
-- configuration loading
-- scans
