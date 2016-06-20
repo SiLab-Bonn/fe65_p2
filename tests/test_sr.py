@@ -49,6 +49,15 @@ class TestSimSr(unittest.TestCase):
         self.dut = fe65p2()
         self.dut.init()
 
+        #reset SPI memory
+        self.dut['global_conf'].set_size(8*19)
+        self.dut['global_conf'].write()
+        while not self.dut['global_conf'].is_ready:
+            pass
+        self.dut['global_conf'].write()
+        while not self.dut['global_conf'].is_ready:
+            pass 
+            
         self.dut['control']['RESET'] = 1
         self.dut['control'].write()
         self.dut['control']['RESET'] = 0
@@ -63,6 +72,7 @@ class TestSimSr(unittest.TestCase):
         self.dut['global_conf']['compVbnDac'] = 25
         self.dut['global_conf']['preCompVbnDac'] = 50
         self.dut['global_conf']['ColSrEn'].setall(True) #enable programming of all columns
+        
         self.dut.write_global()
         self.dut.write_global()
         
@@ -71,10 +81,6 @@ class TestSimSr(unittest.TestCase):
         
         self.assertEqual(send,rec)
 
-        #pixel reg
-        self.dut['pixel_conf'][0] = 1
-        self.dut.write_pixel()
-        
         self.dut['control']['RESET'] = 0b11
         self.dut['control'].write()
         
