@@ -24,7 +24,7 @@ local_configuration = {
 class NoiseScan(ScanBase):
     scan_id = "noise_scan"
 
-    def scan(self, columns = [True] * 16, stop_pixel_count = 4, preCompVbnDac = 110,  vthin2Dac = 0, vthin1Dac = 120, **kwargs):
+    def scan(self, columns = [True] * 16, PrmpVbpDac=80, stop_pixel_count = 4, preCompVbnDac = 110,  vthin2Dac = 0, vthin1Dac = 120, **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -134,6 +134,7 @@ class NoiseScan(ScanBase):
                 self.dut['global_conf']['vthin1Dac'] = vthin1Dac
                 self.dut['global_conf']['vthin2Dac'] = vthin2Dac
                 self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
+                self.dut['global_conf']['PrmpVbpDac'] = PrmpVbpDac
                 self.dut.write_global() 
                 time.sleep(0.1)
                 
@@ -153,6 +154,8 @@ class NoiseScan(ScanBase):
             self.dut['global_conf']['vthin1Dac'] = 255
             self.dut['global_conf']['vthin2Dac'] = 0
             self.dut['global_conf']['preCompVbnDac'] = 50
+            self.dut['global_conf']['PrmpVbpDac'] = 80
+
             self.dut.write_global() 
             
             dqdata =  self.fifo_readout.data        
@@ -202,6 +205,7 @@ class NoiseScan(ScanBase):
         self.dut['global_conf']['vthin1Dac'] = vthin1Dac
         self.dut['global_conf']['vthin2Dac'] = vthin2Dac
         self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
+        self.dut['global_conf']['PrmpVbpDac'] = PrmpVbpDac
 
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Results')
         self.h5_file.createCArray(scan_results, 'tdac_mask', obj=mask_tdac)

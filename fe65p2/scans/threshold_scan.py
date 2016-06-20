@@ -28,7 +28,7 @@ local_configuration = {
 class ThresholdScan(ScanBase):
     scan_id = "threshold_scan"
 
-    def scan(self, mask_steps=4, repeat_command=100, columns = [True] * 16, scan_range = [0, 1.2, 0.1], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
+    def scan(self, mask_steps=4, repeat_command=100, PrmpVbpDac=80, vthin2Dac=0, columns = [True] * 16, scan_range = [0, 1.2, 0.1], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -134,6 +134,8 @@ class ThresholdScan(ScanBase):
 
                     self.dut['global_conf']['vthin1Dac'] = 255
                     self.dut['global_conf']['preCompVbnDac'] = 50
+                    self.dut['global_conf']['vthin2Dac'] = 0
+                    self.dut['global_conf']['PrmpVbpDac'] = 80
                     self.dut.write_global()
                     time.sleep(0.1)
                     
@@ -148,6 +150,8 @@ class ThresholdScan(ScanBase):
 
                     self.dut['global_conf']['vthin1Dac'] = vthin1Dac
                     self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
+                    self.dut['global_conf']['vthin2Dac'] = vthin2Dac
+                    self.dut['global_conf']['PrmpVbpDac'] = PrmpVbpDac
                     self.dut.write_global() 
                     time.sleep(0.1)
                     

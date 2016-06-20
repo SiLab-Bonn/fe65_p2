@@ -148,9 +148,9 @@ def fit_gauss(x_data, y_data):
     logging.info('Params guessed: %s', str(params_guess))
     try:
         params_from_fit = curve_fit(gauss, x_data, y_data, p0=params_guess)
-        logging.info('Fit-params: %s', str(params_from_fit[0]))
+        logging.info('Fit-params: %s %s %s ', str(params_from_fit[0][0]),str(params_from_fit[0][1]),str(params_from_fit[0][2]))
     except RuntimeError:
-        logging.info('Fit did not work: %s', str(np.max(y_data), x_data[np.where(y_data[:] == np.max(y_data))[0]][0], np.std(x_data)))
+        logging.info('Fit did not work: %s %s %s', str(np.max(y_data), str(x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data))))
         return np.max(y_data), x_data[np.where(y_data[:] == np.max(y_data))[0]][0], np.std(x_data)
     A_fit = params_from_fit[0][0]
     mu_fit = params_from_fit[0][1]

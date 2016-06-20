@@ -5,11 +5,57 @@ from bokeh.plotting import figure
 from bokeh.models import LinearAxis, Range1d
 from bokeh.models import ColumnDataSource
 from bokeh.models.widgets import DataTable, DateFormatter, TableColumn
-
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 import tables as tb
 import analysis as analysis
 import yaml
+
+def plot_timewalk(h5_file_name):
+    with tb.open_file(h5_file_name, 'r') as in_file_h5:
+        try:
+            tdc_data = in_file_h5.root.tdc_data[:]
+        except RuntimeError:
+            logging.info('tdc_data not present in file')
+            return
+        tot = tdc_data['tot_ns']
+        tot_err = tdc_data['err_tot_ns']
+        delay = tdc_data['delay_ns']
+        delay_err = tdc_data['err_delay_ns']
+        pixel_no = tdc_data['pixel_no']
+        pulse =  tdc_data['charge']
+        pix, stop = np.unique(pixel_no, return_index=True)
+        stop = np.sort(stop)
+        TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select"
+        p1 = figure(title="Timewalk", tools=TOOLS)
+        p1.xaxis.axis_label="Charge (electrons)"
+        p1.yaxis.axis_label="Delay (ns)"
+        p2 = figure(title="TOT linearity", tools=TOOLS)
+        p2.xaxis.axis_label="Charge (electrons)"
+        p2.yaxis.axis_label="TOT (ns)"
+
+        stop = list(stop)
+        stop.append(len(tot))
+        for i in range(len(stop)-1):
+            s1 = int(stop[i])
+            s2 = int(stop[i+1])
+            p1.circle(pulse[s1:s2], delay[s1:s2], legend=str("pixel "+str(pix[i])), color=Spectral11[i-1], size=8)
+            p1.line(pulse[s1:s2], delay[s1:s2], legend=str("pixel "+str(pix[i])), color=Spectral11[i-1])
+
+            err_x1 = [(pulse[s], pulse[s]) for s in range(s1,s2)]
+            err_y1 = [[float(delay[s]-delay_err[s]), float(delay[s]+delay_err[s])] for s in range(s1,s2)]
+            p1.multi_line(err_x1, err_y1, color=Spectral11[i-1], line_width=2)
+
+            p2.circle(pulse, tot[s1:s2], legend=str("pixel "+str(pix[i])), color=Spectral11[i-1], size = 8)
+            p2.line(pulse, tot[s1:s2], legend=str("pixel "+str(pix[i])),color=Spectral11[i-1])
+            err_x1 = [(pulse[s], pulse[s]) for s in range(s1,s2)]
+            err_y1 = [[float(tot[s]-tot_err[s]), float(tot[s]+tot_err[s])] for s in range(s1,s2)]
+            p2.multi_line(err_x1, err_y1, color=Spectral11[i-1], line_width=2)
+
+        #output_file("attempt.html", title="Timewalk.html")
+        #show(vplot(p1,p2))
+        return p1, p2
 
 
 def plot_status(h5_file_name):
@@ -194,10 +240,10 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
 
 
         hist, edges = np.histogram(Threshold_pure, density=False, bins=50)
-        print "histshape: ", hist.shape, " edgesshape: ", edges.shape
+
 
         hm1 = HeatMap(data, x='scan_param', y='count', values='value', title='s-scans', palette=Spectral11[::-1], stat=None, plot_width=1000) #, height=4100)
-        #hm1.extra_x_ranges = {"e": Range1d(start=edges[0] * 1000 * 7.6, end=edges[-1] * 1000 * 7.6)}
+        hm1.extra_x_ranges = {"e": Range1d(start=edges[0] * 1000 * 7.6, end=edges[-1] * 1000 * 7.6)}
 
         hm_th = figure(title="Threshold", x_axis_label = "pixel #", y_axis_label = "threshold [V]", y_range=(scan_range_inx[0], scan_range_inx[-1]), plot_width=1000)
         hm_th.diamond(y=Threshold_pure, x=range(64*64), size=1, color="#1C9099", line_width=2)
@@ -214,7 +260,6 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
 
 
         hist, edges = np.histogram(Noise_pure, density=False, bins=50)
-        print "histshape: ", hist.shape, " edgesshape: ", edges.shape
         hm_noise = figure(title="Noise", x_axis_label = "pixel #", y_axis_label = "noise [V]", y_range=(0, edges[-1]), plot_width=1000)
         hm_noise.diamond(y=Noise_pure, x=range(64*64), size=2, color="#1C9099", line_width=2)
         hm_noise.extra_y_ranges = {"e": Range1d(start=0, end=edges[-1]*1000*7.6)} #default 7.6
@@ -230,4 +275,5 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
         return vplot(hplot(hm_th, plt_th_dist), hplot(hm_noise,plt_noise_dist), hplot(hm1, single_scan) ), s_hist
     
 if __name__ == "__main__":
+#    plot_timewalk('/home/carlo/fe65_p2/fe65p2/scans/output_data/20160616_161612_threshold_scan.h5')
     pass

@@ -6,6 +6,7 @@
 #
 
 import yaml
+import basil
 from basil.dut import Dut
 import logging
 logging.getLogger().setLevel(logging.DEBUG)
@@ -15,6 +16,8 @@ import time
 import bitarray
 
 from numba import jit, njit
+
+
 
 @njit
 def _interpret_raw_data(data, pix_data):
@@ -268,7 +271,7 @@ class fe65p2(Dut):
                 else:
                     ret = int_pix_data
         else:
-            pix_data = np.recarray((raw_data.shape[0] * 2,), dtype=data_type)
+            pix_data = np.recarray((raw_data.shape[0] * 2), dtype=data_type)
             ret = _interpret_raw_data(raw_data, pix_data)
         return ret
                 
