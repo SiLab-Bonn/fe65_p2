@@ -11,7 +11,7 @@ def analyze_threshold_scan(h5_file_name):
     with tb.open_file(h5_file_name, 'r+') as in_file_h5:
         meta_data = in_file_h5.root.meta_data[:]
         hit_data = in_file_h5.root.hit_data[:]
-        en_mask = in_file_h5.root.scan_masks.en_mask[:]
+        en_mask = in_file_h5.root.scan_results.en_mask[:]
         scan_args = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
         scan_range = scan_args['scan_range']
         scan_range_inx = np.arange(scan_range[0], scan_range[1], scan_range[2])
@@ -53,7 +53,7 @@ def analyze_threshold_scan(h5_file_name):
         noise = np.empty(64 * 64)
         x = scan_range_inx
         for pix in range(64 * 64):
-            mu, sigma = fit_scurve(s_hist[pix], x)  # this can multi threaded
+            A,mu, sigma = fit_scurve(s_hist[pix], x)  # this can multi threaded
             threshold[pix] = mu
             noise[pix] = sigma
         shape = en_mask.shape
@@ -128,11 +128,16 @@ def fit_scurve(scurve_data, PlsrDAC):  # data of some pixels to fit, has to be g
     else:
         try:
             popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[max_occ, threshold, 0.01], check_finite=False)
+            logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]),str(popt[1]),str(popt[2]))
         except RuntimeError:  # fit failed
             popt = [0, 0, 0]
+            logging.info('Fit did not work scurve: %s %s %s', str(popt[0]),
+                         str(popt[1]), str(popt[2]))
+
     if popt[1] < 0:  # threshold < 0 rarely happens if fit does not work
         popt = [0, 0, 0]
-    return popt[1:3]
+    return popt
+
 
 def gauss(x_data, *parameters):
     """Gauss function"""
@@ -145,13 +150,13 @@ def fit_gauss(x_data, y_data):
     y_data = np.array(y_data)
     y_maxima=x_data[np.where(y_data[:]==np.max(y_data))[0]]
     params_guess = np.array([np.max(y_data), y_maxima[0], np.std(x_data)]) # np.mean(y_data)
-    logging.info('Params guessed: %s', str(params_guess))
+    logging.info('Params guessed: %s ', str(params_guess))
     try:
         params_from_fit = curve_fit(gauss, x_data, y_data, p0=params_guess)
-        logging.info('Fit-params: %s %s %s ', str(params_from_fit[0][0]),str(params_from_fit[0][1]),str(params_from_fit[0][2]))
+        logging.info('Fit-params-gauss: %s %s %s ', str(params_from_fit[0][0]),str(params_from_fit[0][1]),str(params_from_fit[0][2]))
     except RuntimeError:
-        logging.info('Fit did not work: %s %s %s', str(np.max(y_data), str(x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data))))
-        return np.max(y_data), x_data[np.where(y_data[:] == np.max(y_data))[0]][0], np.std(x_data)
+        logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
+        return params_guess[0],params_guess[1],params_guess[2]
     A_fit = params_from_fit[0][0]
     mu_fit = params_from_fit[0][1]
     sigma_fit = np.abs(params_from_fit[0][2])
@@ -159,3 +164,54 @@ def fit_gauss(x_data, y_data):
 
 if __name__ == "__main__":
     pass
+
+def exp(x,*parameters):
+    a,b,c,d= parameters
+    return d+c*np.exp(-(x+b)/a)
+
+def fit_exp(x_data, y_data,thresh,decline):
+    a = (x_data[decline]-x_data[0])/4
+    if a==0:
+        a=1
+    b = -1*thresh
+    c = np.max(y_data)
+    d = np.min(y_data)
+    params_guess = np.array([a, b, c, d])
+    logging.debug('expparamsguess: %s', str(params_guess))
+    try:
+        params_from_fit=curve_fit(exp, x_data, y_data, p0=params_guess)
+        logging.info('Fit worked exp: %s %s %s %s', str(params_from_fit[0][0]),
+                 str(params_from_fit[0][1]), str(params_from_fit[0][2]), str(params_from_fit[0][3]))
+    except RuntimeError:
+        logging.info('Fit did not work exp: %s %s %s %s', str(a),
+                     str(b), str(c), str(d))
+        return a,b,c,d
+    a_fit=params_from_fit[0][0]
+    b_fit=params_from_fit[0][1]
+    c_fit = params_from_fit[0][2]
+    d_fit = params_from_fit[0][3]
+    return a_fit, b_fit, c_fit, d_fit
+
+
+def cosh(x, *parameters):
+    a, b, c, d = parameters
+    return d+c/(np.cosh((x+b)/a))
+
+def fit_cosh(x_data, y_data,thresh,decline):
+    a=(x_data[decline]-x_data[0])/4
+    b=-1*thresh
+    c=np.max(y_data)
+    d=np.min(y_data)
+    params_guess = np.array([a, b, c, d])
+    logging.debug('params_guessed: %s', str(params_guess))
+    try:
+        params_from_fit=curve_fit(cosh, x_data, y_data, p0=params_guess)
+    except RuntimeError:
+        logging.info('Fit did not work: %s %s %s %s', str(a),
+                     str(b), str(c), str(d))
+        return a,b,c,d
+    a_fit=params_from_fit[0][0]
+    b_fit=params_from_fit[0][1]
+    c_fit = params_from_fit[0][2]
+    d_fit=params_from_fit[0][3]
+    return a_fit, b_fit, c_fit, d_fit

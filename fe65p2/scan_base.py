@@ -108,7 +108,8 @@ class ScanBase(object):
         logging.info('Data Output Filename: %s', self.output_filename + '.h5')
         
         logger.removeHandler(fh)
-        
+        self.dut.power_down()
+
     def analyze(self):
         raise NotImplementedError('ScanBase.analyze() not implemented')
 

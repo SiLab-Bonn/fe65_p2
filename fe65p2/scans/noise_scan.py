@@ -14,7 +14,7 @@ from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "stop_pixel_count": 4,
+    "stop_pixel_count": 64,
     "vthin2Dac" : 0,
     "vthin1Dac" : 130,
     "columns": [True] * 2 + [False] * 14,
@@ -24,7 +24,8 @@ local_configuration = {
 class NoiseScan(ScanBase):
     scan_id = "noise_scan"
 
-    def scan(self, columns = [True] * 16, PrmpVbpDac=80, stop_pixel_count = 4, preCompVbnDac = 110,  vthin2Dac = 0, vthin1Dac = 120, **kwargs):
+    def scan(self, columns = [True] * 16, PrmpVbpDac=80, stop_pixel_count = 4, preCompVbnDac = 110,  vthin2Dac = 0, vthin1Dac = 130, **kwargs):
+
         '''Scan loop
         Parameters
         ----------
@@ -46,7 +47,7 @@ class NoiseScan(ScanBase):
         self.dut['global_conf']['PrmpVbnFolDac'] = 51
         self.dut['global_conf']['vbnLccDac'] = 1
         self.dut['global_conf']['compVbnDac'] = 25
-        self.dut['global_conf']['preCompVbnDac'] = 50
+        self.dut['global_conf']['preCompVbnDac'] = 110#50
         
         self.dut.write_global() 
         self.dut['control']['RESET'] = 0b01

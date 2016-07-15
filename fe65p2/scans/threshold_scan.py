@@ -13,6 +13,7 @@ import bitarray
 import tables as tb
 from bokeh.charts import output_file, show, vplot, hplot, save
 from progressbar import ProgressBar
+from basil.dut import Dut
 import os
 
 local_configuration = {
@@ -20,7 +21,8 @@ local_configuration = {
     "repeat_command": 100,
     "scan_range": [0.0, 0.4, 0.02],
     "vthin1Dac": 60,
-    "preCompVbnDac" : 115,
+    "PrmpVbpDac": 36,
+    "preCompVbnDac" : 110,
     "columns" : [True] * 2 + [True] * 14,
     "mask_filename": ''
 }
@@ -28,7 +30,9 @@ local_configuration = {
 class ThresholdScan(ScanBase):
     scan_id = "threshold_scan"
 
-    def scan(self, mask_steps=4, repeat_command=100, PrmpVbpDac=80, vthin2Dac=0, columns = [True] * 16, scan_range = [0, 1.2, 0.1], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
+
+    def scan(self, mask_steps=4, repeat_command=100, PrmpVbpDac=80, vthin2Dac=0, columns = [True] * 16, scan_range = [0, 0.2, 0.005], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
+
         '''Scan loop
         Parameters
         ----------
@@ -37,9 +41,17 @@ class ThresholdScan(ScanBase):
         repeat : int
             Number of injections.
         '''
-        
-        INJ_LO = 0.2
-        self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
+        inj_factor = 1.0
+        INJ_LO = 0.0
+        try:
+            dut = Dut(ScanBase.get_basil_dir(self)+'/examples/lab_devices/agilent33250a_pyserial.yaml')
+            dut.init()
+            logging.info('Connected to '+str(dut['Pulser'].get_info()))
+        except RuntimeError:
+            INJ_LO = 0.2
+            inj_factor = 2.0
+            logging.info('External injector not connected. Switch to internal one')
+            self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
         
         self.dut['global_conf']['PrmpVbpDac'] = 80
         self.dut['global_conf']['vthin1Dac'] = 255
@@ -98,14 +110,14 @@ class ThresholdScan(ScanBase):
             with tb.open_file(mask_filename, 'r') as in_file_h5:
                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
                 mask_en = in_file_h5.root.scan_results.en_mask[:]
-        
+
         self.dut.write_en_mask(mask_en)
         self.dut.write_tune_mask(mask_tdac)
         
         self.dut['global_conf']['OneSr'] = 0
         self.dut.write_global()
 
-        self.dut['inj'].set_delay(100000) #this seems to be working OK problem is probably bad injection on GPAC
+        self.dut['inj'].set_delay(10000) #this seems to be working OK problem is probably bad injection on GPAC usually +0
         self.dut['inj'].set_width(1000)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
@@ -119,9 +131,10 @@ class ThresholdScan(ScanBase):
         lmask = lmask * ( (64 * 64) / mask_steps  + 1 )
         lmask = lmask[:64*64]
 
-        scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2]) / 2 # This depends on GPAC setting
+        scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2]) / inj_factor
         
         for idx, k in enumerate(scan_range):
+            dut['Pulser'].set_voltage(INJ_LO, float(INJ_LO + k), unit='V')
             self.dut['INJ_HI'].set_voltage( float(INJ_LO + k), unit='V')
             time.sleep(0.5)
             
@@ -165,10 +178,10 @@ class ThresholdScan(ScanBase):
                     while not self.dut['trigger'].is_done():
                         pass
                     
-        scan_results = self.h5_file.create_group("/", 'scan_masks', 'Scan Masks')
+        scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Masks')
         self.h5_file.createCArray(scan_results, 'tdac_mask', obj=mask_tdac)
         self.h5_file.createCArray(scan_results, 'en_mask', obj=mask_en)
-        
+
         
     def analyze(self):
         h5_filename = self.output_filename +'.h5'

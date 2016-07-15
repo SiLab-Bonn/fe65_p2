@@ -11,7 +11,8 @@ transfer_layer:
     init:
       bit_file: ../firmware/ise/fe65p2_mio.bit
       avoid_download: True
-    
+      #board_id: 216
+
 hw_drivers:
   - name      : GPAC
     type      : GPAC

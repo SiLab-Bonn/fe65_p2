@@ -16,17 +16,33 @@ def plot_timewalk(h5_file_name):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         try:
             tdc_data = in_file_h5.root.tdc_data[:]
+
+            td_threshold=in_file_h5.root.td_threshold[:]
         except RuntimeError:
             logging.info('tdc_data not present in file')
             return
+
+        time_thresh = td_threshold['td_threshold']
+        expfit0 = td_threshold['expfit0']
+        expfit1 = td_threshold['expfit1']
+        expfit2 = td_threshold['expfit2']
+        expfit3 = td_threshold['expfit3']
+
         tot = tdc_data['tot_ns']
         tot_err = tdc_data['err_tot_ns']
         delay = tdc_data['delay_ns']
         delay_err = tdc_data['err_delay_ns']
         pixel_no = tdc_data['pixel_no']
-        pulse =  tdc_data['charge']
+
+        pulse = tdc_data['charge']
+        hits = tdc_data['hits']
         pix, stop = np.unique(pixel_no, return_index=True)
         stop = np.sort(stop)
+
+        single_scan = figure(title="Single pixel scan ")
+        single_scan.xaxis.axis_label="Charge (electrons)"
+        single_scan.yaxis.axis_label="Hits"
+
         TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select"
         p1 = figure(title="Timewalk", tools=TOOLS)
         p1.xaxis.axis_label="Charge (electrons)"
@@ -40,22 +56,33 @@ def plot_timewalk(h5_file_name):
         for i in range(len(stop)-1):
             s1 = int(stop[i])
             s2 = int(stop[i+1])
-            p1.circle(pulse[s1:s2], delay[s1:s2], legend=str("pixel "+str(pix[i])), color=Spectral11[i-1], size=8)
-            p1.line(pulse[s1:s2], delay[s1:s2], legend=str("pixel "+str(pix[i])), color=Spectral11[i-1])
+
+            if time_thresh[i]==0:
+                continue
+            single_scan.diamond(x=pulse[s1:s2], y=hits[s1:s2], size=5, color=Spectral11[i-1], line_width=2)
+            A, mu, sigma = analysis.fit_scurve(hits[s1:s2], pulse[s1:s2])
+            for values in range(s1,s2):
+                if pulse[values] >=5/4*mu:
+                    s1=values
+                    break
+            p1.circle(pulse[s1:s2], delay[s1:s2], legend=str("pixel " + str(pix[i])), color=Spectral11[i-1], size=8)
+            if len(time_thresh)!=0:
+                p1.line(pulse[s1:s2], analysis.exp(pulse[s1:s2], expfit0[i], expfit1[i], expfit2[i], expfit3[i]),
+                        color=Spectral11[i - 1])
+                p1.asterisk(time_thresh[i],np.min(delay[s1:s2])+25,color=Spectral11[i-1], size=20,legend="Time dependent Threshold: "+str(round(time_thresh[i],2)))
+            else:
+                logging.info('No fit possible only Data plotted')
 
             err_x1 = [(pulse[s], pulse[s]) for s in range(s1,s2)]
             err_y1 = [[float(delay[s]-delay_err[s]), float(delay[s]+delay_err[s])] for s in range(s1,s2)]
             p1.multi_line(err_x1, err_y1, color=Spectral11[i-1], line_width=2)
 
-            p2.circle(pulse, tot[s1:s2], legend=str("pixel "+str(pix[i])), color=Spectral11[i-1], size = 8)
-            p2.line(pulse, tot[s1:s2], legend=str("pixel "+str(pix[i])),color=Spectral11[i-1])
+
+            p2.circle(pulse[s1:s2], tot[s1:s2], legend=str("pixel "+str(pix[i])), color=Spectral11[i-1], size = 8)
             err_x1 = [(pulse[s], pulse[s]) for s in range(s1,s2)]
             err_y1 = [[float(tot[s]-tot_err[s]), float(tot[s]+tot_err[s])] for s in range(s1,s2)]
             p2.multi_line(err_x1, err_y1, color=Spectral11[i-1], line_width=2)
-
-        #output_file("attempt.html", title="Timewalk.html")
-        #show(vplot(p1,p2))
-        return p1, p2
+        return p1, p2, single_scan
 
 
 def plot_status(h5_file_name):
@@ -148,8 +175,8 @@ def plot_lv1id_dist(h5_file_name):
 
 def t_dac_plot(h5_file_name):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
-        t_dac = in_file_h5.root.scan_masks.tdac_mask[:]
-        en_mask = in_file_h5.root.scan_masks.en_mask[:]
+        t_dac = in_file_h5.root.scan_results.tdac_mask[:]
+        en_mask = in_file_h5.root.scan_results.en_mask[:]
     shape = en_mask.shape
     ges = 1
     for i in range(2):
@@ -164,15 +191,15 @@ def t_dac_plot(h5_file_name):
     T_Dac_hist_y = np.bincount(T_Dac_pure)
     T_Dac_hist_x = np.arange(0, T_Dac_hist_y.size, 1)
 
-    plt_t_dac = figure(title='T-Dac-distribution ', x_axis_label="T-Dac",y_axis_label="Hit-Number")
-    plt_t_dac.quad(top=T_Dac_hist_y, bottom=0, left=T_Dac_hist_x[:-1], right=T_Dac_hist_x[1:], fill_color="#036564", line_color="#033649")
+    plt_t_dac = figure(title='T-Dac-distribution ', x_axis_label="T-Dac",y_axis_label="#Pixel")
+    plt_t_dac.quad(top=T_Dac_hist_y, bottom=0, left=T_Dac_hist_x[:-1], right=T_Dac_hist_x[1:], fill_color="#036564", line_color="#033649",legend="# " + str(int(np.sum(T_Dac_hist_y[:]))))
     return plt_t_dac
 
 def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         meta_data = in_file_h5.root.meta_data[:]
         hit_data = in_file_h5.root.hit_data[:]
-        en_mask = in_file_h5.root.scan_masks.en_mask[:]
+        en_mask = in_file_h5.root.scan_results.en_mask[:]
         Noise_gauss = in_file_h5.root.Noise_results.Noise_pure.attrs.fitdata_noise
         Noise_pure= in_file_h5.root.Noise_results.Noise_pure[:]
         Thresh_gauss = in_file_h5.root.Thresh_results.Threshold_pure.attrs.fitdata_thresh
@@ -233,7 +260,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
 
         x = scan_range_inx
         px = scurve_sel_pix #1110 #1539
-        single_scan = figure(title="Single pixel scan " + str(px) )
+        single_scan = figure(title="Single pixel scan " + str(px), x_axis_label = "Injection[V]", y_axis_label = "Hits" )
         single_scan.diamond(x=x, y=s_hist[px], size=5, color="#1C9099", line_width=2)
         yf = analysis.scurve(x, 100, Threshold_pure[px], Noise_pure[px])
         single_scan.cross(x=x, y=yf, size=5, color="#E6550D", line_width=2)
@@ -241,15 +268,15 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
 
         hist, edges = np.histogram(Threshold_pure, density=False, bins=50)
 
-
-        hm1 = HeatMap(data, x='scan_param', y='count', values='value', title='s-scans', palette=Spectral11[::-1], stat=None, plot_width=1000) #, height=4100)
+        hm1 = HeatMap(data, x='scan_param', y='count', values='value', title='Threshold Heatmap', palette=Spectral11[::-1], stat=None, plot_width=1000) #, height=4100)
+        
         hm1.extra_x_ranges = {"e": Range1d(start=edges[0] * 1000 * 7.6, end=edges[-1] * 1000 * 7.6)}
 
         hm_th = figure(title="Threshold", x_axis_label = "pixel #", y_axis_label = "threshold [V]", y_range=(scan_range_inx[0], scan_range_inx[-1]), plot_width=1000)
         hm_th.diamond(y=Threshold_pure, x=range(64*64), size=1, color="#1C9099", line_width=2)
         hm_th.extra_y_ranges = {"e": Range1d(start=scan_range_inx[0]*1000*7.6, end=scan_range_inx[-1]*1000*7.6)}
         hm_th.add_layout(LinearAxis(y_range_name="e"), 'right')
-        plt_th_dist = figure(title= 'Threshold Distribution ', x_axis_label = "threshold [V]", y_range=(0, 1.1*np.max(hist[1:])))
+        plt_th_dist = figure(title= 'Threshold Distribution ', x_axis_label = "threshold [V]", y_axis_label = "#Pixel", y_range=(0, 1.1*np.max(hist[1:])))
         plt_th_dist.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564",
                          line_color="#033649",
                          legend="# {0:d}  mean={1:.2f}  std={2:.2f}".format(int(np.sum(hist[:])), round(Thresh_gauss['mu']*1000*7.6,4),
@@ -265,7 +292,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix = 200):
         hm_noise.extra_y_ranges = {"e": Range1d(start=0, end=edges[-1]*1000*7.6)} #default 7.6
         hm_noise.add_layout(LinearAxis(y_range_name="e"), 'right')
 
-        plt_noise_dist = figure(title='Noise Distribution ', x_axis_label = "noise [V]", y_range=(0, 1.1*np.max(hist[1:])))
+        plt_noise_dist = figure(title='Noise Distribution ', x_axis_label = "noise [V]", y_axis_label = "#Pixel", y_range=(0, 1.1*np.max(hist[1:])))
         plt_noise_dist.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:], fill_color="#036564",
                             line_color="#033649", legend="# {0:d}  mean={1:.2f}  std={2:.2f}".format(int(np.sum(hist[:])),round(Noise_gauss['mu']*1000*7.6,4),round(Noise_gauss['sigma']*1000*7.6,4)))
         plt_noise_dist.extra_x_ranges = {"e": Range1d(start=edges[0]*1000*7.6, end=edges[-1]*1000*7.6)}
