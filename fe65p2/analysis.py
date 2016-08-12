@@ -7,6 +7,9 @@ from scipy.special import erf
 import yaml
 
 
+def cap_fac():
+    return 7.9891
+
 def analyze_threshold_scan(h5_file_name):
     with tb.open_file(h5_file_name, 'r+') as in_file_h5:
         meta_data = in_file_h5.root.meta_data[:]
@@ -73,9 +76,16 @@ def analyze_threshold_scan(h5_file_name):
         hist_thresh_y, hist_thresh_x = np.histogram(Threshold_pure, density=False, bins=50)
         Noise_pure[Noise_pure > 0.02] = 0.02
         hist_noise_y, hist_noise_x = np.histogram(Noise_pure, density=False, bins=50)
-
-        gauss_thresh = fit_gauss(hist_thresh_x[4:], hist_thresh_y[3:])
-        gauss_noise = fit_gauss(hist_noise_x[5:], hist_noise_y[4:])
+        new_x=()
+        for entries in range(len(hist_thresh_x)-1):
+            new_x= np.append(new_x,(hist_thresh_x[entries]+hist_thresh_x[entries+1])/2)
+        hist_thresh_x=new_x
+        new_x=()
+        for entries in range(len(hist_noise_x)-1):
+            new_x= np.append(new_x,(hist_noise_x[entries]+hist_noise_x[entries+1])/2)
+        hist_noise_x=new_x
+        gauss_thresh = fit_gauss(hist_thresh_x, hist_thresh_y)
+        gauss_noise = fit_gauss(hist_noise_x, hist_noise_y)
         thresh_fit_values = {}
         noise_fit_values = {}
         thresh_fit_values['height'] = gauss_thresh[0]
@@ -122,12 +132,12 @@ def scurve(x, A, mu, sigma):
 def fit_scurve(scurve_data, PlsrDAC):  # data of some pixels to fit, has to be global for the multiprocessing module
     index = np.argmax(np.diff(scurve_data))
     max_occ = np.median(scurve_data[index:])
-    threshold = PlsrDAC[index] 
+    threshold = PlsrDAC[index]
     if abs(max_occ) <= 1e-08:  # or index == 0: occupancy is zero or close to zero
         popt = [0, 0, 0]
     else:
         try:
-            popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[max_occ, threshold, 0.01], check_finite=False)
+            popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[max_occ, threshold, 0.01], check_finite=False) #0.01 vorher
             logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]),str(popt[1]),str(popt[2]))
         except RuntimeError:  # fit failed
             popt = [0, 0, 0]
@@ -171,13 +181,12 @@ def exp(x,*parameters):
 
 def fit_exp(x_data, y_data,thresh,decline):
     a = (x_data[decline]-x_data[0])/4
-    if a==0:
-        a=1
     b = -1*thresh
     c = np.max(y_data)
     d = np.min(y_data)
     params_guess = np.array([a, b, c, d])
-    logging.debug('expparamsguess: %s', str(params_guess))
+    if len(x_data)<4:
+        return 0,0,0,0
     try:
         params_from_fit=curve_fit(exp, x_data, y_data, p0=params_guess)
         logging.info('Fit worked exp: %s %s %s %s', str(params_from_fit[0][0]),
@@ -203,7 +212,7 @@ def fit_cosh(x_data, y_data,thresh,decline):
     c=np.max(y_data)
     d=np.min(y_data)
     params_guess = np.array([a, b, c, d])
-    logging.debug('params_guessed: %s', str(params_guess))
+    print "params_guessed: ", params_guess
     try:
         params_from_fit=curve_fit(cosh, x_data, y_data, p0=params_guess)
     except RuntimeError:
