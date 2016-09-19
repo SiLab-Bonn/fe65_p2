@@ -230,18 +230,18 @@ class fe65p2(Dut):
 
         
     def write_tune_mask(self, mask):
-            # 0  -> Sign = 1, TDac = 15 1111(lowest) 
+            # 1  -> Sign = 1, TDac = 15 1111(lowest)
             # ...
             # 15 -> Sign = 1, TDac = 0  0000
-            # 16 -> Sign = 0, TDac = 0  0000
+            # 16 -> Sign = 0, TDac = 0  0001
             # ...
             # 31 -> Sign = 0, TDac = 15 1111
             
             mask_out = np.copy(mask)
             mask_bits = np.unpackbits(mask_out)
             mask_bits_array = np.reshape(mask_bits, (64,64,8))
-            mask_out[mask_bits_array[:,:,3] == 0] = 15 - mask_out[mask_bits_array[:,:,3] == 0]
-            
+            mask_out[mask_bits_array[:,:,3] == 0] = 16 - mask_out[mask_bits_array[:,:,3] == 0]#15
+            #investigate here how to set 0 to 0
             mask_bits = np.unpackbits(mask_out)
             mask_bits_array = np.reshape(mask_bits, (64,64,8)).astype(np.bool)
             mask_bits_array[:,:,3] = ~mask_bits_array[:,:,3]
@@ -297,9 +297,7 @@ class fe65p2(Dut):
     def power_down(self):
 
         self['VDDA'].set_enable(False)
-
         self['VDDD'].set_enable(False)
-
         self['VAUX'].set_enable(False)
 
 

@@ -273,11 +273,14 @@ class TimewalkScan(ScanBase):
             stop = np.sort(stop)
             stop = list(stop)
             stop.append(len(avg_tdc))
+            repeat_command_dic={}
+            repeat_command_dic['repeat_command']=repeat_command
             avg_tab = np.rec.fromarrays([injections, pxl_list, hits, avg_tdc, avg_tdc_err, avg_del, avg_del_err],
                                         dtype=[('charge', float), ('pixel_no', int), ('hits', int),
                                                ('tot_ns', float), ('err_tot_ns', float), ('delay_ns', float),
                                                ('err_delay_ns', float)])
-            in_file_h5.createTable(in_file_h5.root, 'tdc_data', avg_tab, filters=self.filter_tables)
+            tdc_table=in_file_h5.createTable(in_file_h5.root, 'tdc_data', avg_tab, filters=self.filter_tables)
+            tdc_table.attrs.repeat_command = repeat_command_dic
             thresholds = ()
             expfit0 = ()
             expfit1 = ()
@@ -287,7 +290,7 @@ class TimewalkScan(ScanBase):
             for i in range(len(stop) - 1):
                 s1 = int(stop[i])
                 s2 = int(stop[i + 1])
-                A, mu, sigma = analysis.fit_scurve(hits[s1:s2], injections[s1:s2])
+                A, mu, sigma = analysis.fit_scurve(hits[s1:s2], injections[s1:s2],repeat_command)
                 if np.max(hits[s1:s2]) > (repeat_command + 200):  # or mu > 3000:
                     thresholds = np.append(thresholds, 0)
                     expfit0 = np.append(expfit0, 0)

@@ -19,19 +19,21 @@ import os
 local_configuration = {
     "mask_steps": 4,
     "repeat_command": 100,
-    "scan_range": [0.0, 0.4, 0.02],
-    "vthin1Dac": 60,
-    "PrmpVbpDac": 36,
+    "scan_range": [0.0, 0.6, 0.01],
+    "vthin1Dac": 100,
+    "vthin2Dac": 0,
+    "PrmpVbpDac": 80,
     "preCompVbnDac" : 110,
     "columns" : [True] * 2 + [False] * 14,
-    "mask_filename": ''
+    "mask_filename": '',
+    "TDAC" : 16
 }
 
 class ThresholdScan(ScanBase):
     scan_id = "threshold_scan"
 
 
-    def scan(self, mask_steps=4, repeat_command=100, PrmpVbpDac=80, vthin2Dac=0, columns = [True] * 16, scan_range = [0, 0.2, 0.005], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
+    def scan(self, mask_steps=4, TDAC=16, repeat_command=100, PrmpVbpDac=80, vthin2Dac=0, columns = [True] * 16, scan_range = [0, 0.2, 0.005], vthin1Dac = 80, preCompVbnDac = 50, mask_filename='', **kwargs):
 
         '''Scan loop
         Parameters
@@ -98,7 +100,7 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['InjEnLd'] = 0
 
         mask_en = np.full([64,64], False, dtype = np.bool)
-        mask_tdac = np.full([64,64], 16, dtype = np.uint8)
+        mask_tdac = np.full([64,64], TDAC, dtype = np.uint8)
 
         for inx, col in enumerate(columns):
            if col:

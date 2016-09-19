@@ -56,7 +56,7 @@ def analyze_threshold_scan(h5_file_name):
         noise = np.empty(64 * 64)
         x = scan_range_inx
         for pix in range(64 * 64):
-            A,mu, sigma = fit_scurve(s_hist[pix], x)  # this can multi threaded
+            A,mu, sigma = fit_scurve(s_hist[pix], x, repeat_command)  # this can multi threaded
             threshold[pix] = mu
             noise[pix] = sigma
         shape = en_mask.shape
@@ -129,7 +129,7 @@ def analyze_threshold_scan(h5_file_name):
 def scurve(x, A, mu, sigma):
     return 0.5 * A * erf((x - mu) / (np.sqrt(2) * sigma)) + 0.5 * A
 
-def fit_scurve(scurve_data, PlsrDAC):  # data of some pixels to fit, has to be global for the multiprocessing module
+def fit_scurve(scurve_data, PlsrDAC, repeat_command):  # data of some pixels to fit, has to be global for the multiprocessing module
     index = np.argmax(np.diff(scurve_data))
     max_occ = np.median(scurve_data[index:])
     threshold = PlsrDAC[index]
@@ -137,7 +137,7 @@ def fit_scurve(scurve_data, PlsrDAC):  # data of some pixels to fit, has to be g
         popt = [0, 0, 0]
     else:
         try:
-            popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[max_occ, threshold, 0.01], check_finite=False) #0.01 vorher
+            popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[repeat_command, threshold, 0.01], check_finite=False) #0.01 vorher
             logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]),str(popt[1]),str(popt[2]))
         except RuntimeError:  # fit failed
             popt = [0, 0, 0]
@@ -212,7 +212,7 @@ def fit_cosh(x_data, y_data,thresh,decline):
     c=np.max(y_data)
     d=np.min(y_data)
     params_guess = np.array([a, b, c, d])
-    print "params_guessed: ", params_guess
+    #print "params_guessed: ", params_guess
     try:
         params_from_fit=curve_fit(cosh, x_data, y_data, p0=params_guess)
     except RuntimeError:

@@ -17,6 +17,7 @@ class MetaTable(tb.IsDescription):
     timestamp_stop = tb.Float64Col(pos=4)
     scan_param_id = tb.UInt16Col(pos=5)
     error = tb.UInt32Col(pos=6)
+    trigger = tb.Float64Col(pos=7)
 
 
 class ScanBase(object):
@@ -74,7 +75,7 @@ class ScanBase(object):
 
         # default config
         # TODO: load from file
-        self.dut['global_conf']['PrmpVbpDac'] = 36
+        self.dut['global_conf']['PrmpVbpDac'] = 80
         self.dut['global_conf']['vthin1Dac'] = 255
         self.dut['global_conf']['vthin2Dac'] = 0
         self.dut['global_conf']['vffDac'] = 42
@@ -146,6 +147,7 @@ class ScanBase(object):
     def handle_data(self, data_tuple):
         '''Handling of the data.
         '''
+        get_bin = lambda x, n: format(x, 'b').zfill(n)
         # print data_tuple[0].shape[0] #, data_tuple
 
         total_words = self.raw_data_earray.nrows
@@ -162,6 +164,10 @@ class ScanBase(object):
         total_words += len_raw_data
         self.meta_data_table.row['index_stop'] = total_words
         self.meta_data_table.row['scan_param_id'] = self.scan_param_id
+        counter = 0
+        for i in data_tuple[0]:
+            counter = counter + int(get_bin(int(data_tuple[0][0]), 32)[1])
+        self.meta_data_table.row['trigger'] = counter / len(data_tuple[0])
         self.meta_data_table.row.append()
         self.meta_data_table.flush()
         # print len_raw_data

@@ -15,11 +15,12 @@ from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "stop_pixel_count": 64,
+    "stop_pixel_count": 4,
     "vthin2Dac": 0,
     "vthin1Dac": 130,
     "columns": [True] * 2 + [False] * 14,
-    "preCompVbnDac": 115
+    "preCompVbnDac": 110,
+    "PrmpVbpDac": 80,
 }
 
 
@@ -48,7 +49,7 @@ class NoiseScan(ScanBase):
         self.dut['global_conf']['PrmpVbnFolDac'] = 51
         self.dut['global_conf']['vbnLccDac'] = 1
         self.dut['global_conf']['compVbnDac'] = 25
-        self.dut['global_conf']['preCompVbnDac'] = 110  # 50
+        self.dut['global_conf']['preCompVbnDac'] = 50
 
         self.dut.write_global()
         self.dut['control']['RESET'] = 0b01
@@ -95,7 +96,7 @@ class NoiseScan(ScanBase):
         self.dut.write_global()
 
         mask_en = np.zeros([64, 64], dtype=np.bool)
-        mask_tdac = np.zeros([64, 64], dtype=np.uint8)
+        mask_tdac = np.ones([64, 64], dtype=np.uint8)
 
         for inx, col in enumerate(columns):
             if col:
@@ -103,7 +104,7 @@ class NoiseScan(ScanBase):
 
         self.dut.write_en_mask(mask_en)
 
-        mask_tdac[:, :] = 0
+        mask_tdac[:, :] = 1
         self.dut.write_tune_mask(mask_tdac)
 
         self.dut['global_conf']['TestHit'] = 0
@@ -153,7 +154,7 @@ class NoiseScan(ScanBase):
 
             self.dut['global_conf']['vthin1Dac'] = 255
             self.dut['global_conf']['vthin2Dac'] = 0
-            self.dut['global_conf']['preCompVbnDac'] = 110  # 50
+            self.dut['global_conf']['preCompVbnDac'] = 50
             self.dut['global_conf']['PrmpVbpDac'] = 80
 
             self.dut.write_global()
