@@ -28,7 +28,7 @@ install:
   - git clone https://github.com/potentialventures/cocotb.git
   - export COCOTB=$(pwd)/cocotb
   - cd cocotb
-  - git reset --hard 9ec1bb6a2e2d03408aa87bc71fda44ff0ec39136
+  - git reset --hard 6ff0d3985a51c681ddd633ad453202c9020c08fe
   - cd ..
 
   - git clone -b v2.4.3 https://github.com/SiLab-Bonn/basil; cd basil; python setup.py develop; cd ..;
