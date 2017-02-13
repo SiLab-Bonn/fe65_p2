@@ -27,11 +27,11 @@ class ScanBase(object):
     '''
 
     def __init__(self, dut_conf=None):
+
         logging.info('Initializing %s', self.__class__.__name__)
 
         self.dut = fe65p2(dut_conf)
-        self.dut.init()
-
+        
         self.working_dir = os.path.join(os.getcwd(), "output_data")
         if not os.path.exists(self.working_dir):
             os.makedirs(self.working_dir)
@@ -39,7 +39,14 @@ class ScanBase(object):
         self.final_vth1 = -99
         self.run_name = time.strftime("%Y%m%d_%H%M%S_") + self.scan_id
         self.output_filename = os.path.join(self.working_dir, self.run_name)
-
+               
+        self.fh = logging.FileHandler(self.output_filename + '.log')
+        self.fh.setLevel(logging.DEBUG)
+        self.logger = logging.getLogger()
+        self.logger.addHandler(self.fh)
+        
+        self.dut.init()
+        
     def cap_fac(self):
         return 7.9891
 
@@ -48,10 +55,7 @@ class ScanBase(object):
 
     def start(self, **kwargs):
 
-        fh = logging.FileHandler(self.output_filename + '.log')
-        fh.setLevel(logging.DEBUG)
-        logger = logging.getLogger()
-        logger.addHandler(fh)
+      
 
         self._first_read = False
         self.scan_param_id = 0
@@ -128,7 +132,7 @@ class ScanBase(object):
                  t_file.write(t_log)
 
 
-        logger.removeHandler(fh)
+        self.logger.removeHandler(self.fh)
         self.dut.power_down()
 
     def analyze(self):
