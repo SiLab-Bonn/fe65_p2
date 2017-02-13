@@ -6,59 +6,26 @@
 proc main {} {
 
    puts "I'm alive"
-   set index(0) 160
-   set index(1) 150
-   set index(2) 140
-   set index(3) 130
-   set index(4) 120
-   set index(5) 110
-   set index(6) 100
-   set index(7) 90
-   set index(8) 80
-   set index(9) 70
-   set index(10) 60
-   set index(11) 50
-   set index(12) 40
-   set index(13) 30
-   set index(14) 20
-   set index(15) 10
+   set index(0) 32
+   set index(1) 24
+   set index(2) 16
+   set index(3) 12
+   set index(4) 8
+   set index(5) 6
+   set index(6) 4
+   set index(7) 3
 
-   set dfx2(160) 2
-   set dfx2(150) 16
-   set dfx2(140) 8
-   set dfx2(130) 16
-   set dfx2(120) 8
-   set dfx2(110) 16
-   set dfx2(100) 8
-   set dfx2(90) 16
-   set dfx2(80) 4
-   set dfx2(70) 16
-   set dfx2(60) 8
-   set dfx2(50) 16
-   set dfx2(40) 8
-   set dfx2(30) 16
-   set dfx2(20) 16
-   set dfx2(10) 32
-      
-   set mfx2(160) 2
-   set mfx2(150) 15
-   set mfx2(140) 7
-   set mfx2(130) 13
-   set mfx2(120) 6
-   set mfx2(110) 11
-   set mfx2(100) 5
-   set mfx2(90) 9 
-   set mfx2(80) 2
-   set mfx2(70) 7
-   set mfx2(60) 3
-   set mfx2(50) 5
-   set mfx2(40) 2
-   set mfx2(30) 3
-   set mfx2(20) 2
-   set mfx2(10) 2
+   set dfx1(32) 1.5
+   set dfx1(24) 2
+   set dfx1(16) 3
+   set dfx1(12) 4
+   set dfx1(8) 6
+   set dfx1(6) 8
+   set dfx1(4) 12
+   set dfx1(3) 16
 
    set myProject "fe65p2"
-   set myScript "fe65p2.tcl"
+   set myScript "fe65p2SPI.tcl"
 
       if { ! [ file exists ${myProject}.xise ] } { 
       ## project file isn't there, rebuild it.
@@ -73,17 +40,13 @@ proc main {} {
    # Set the Top Module as well...
    project set top "fe65p2_mio"
 
-   puts "$myScript: project sources reloaded."
+   puts "$myScript : project sources reloaded."
 
-   for {set i 8} {$i<9} {incr i} {
-#		set DCM2FX_div $dfx($index($i))
-#		set DCM2FX_mult $mfx($index($i))
-#		set DCM2DV_div $ddv($index($i))
+   for {set i 7} {$i<8} {incr i} {
 
-		set FX2_div $dfx2($index($i))
-		set FX2_mult $mfx2($index($i))
+      set div1 $dfx1($index($i))
 	
-   puts "Generating $index($i) with d2 $FX2_div, m2 $FX2_mult"
+   puts "Generating $index($i) with d1 $div1"
    project set "Compiled Library Directory" "\$XILINX/<language>/<simulator>"
    project set "Multiplier Style" "Auto" -process "Synthesize - XST"
    project set "DCI Update Mode" "As Required" -process "Generate Programming File"
@@ -233,7 +196,7 @@ proc main {} {
    project set "Use Synthesis Constraints File" "true" -process "Synthesize - XST"
    project set "Verilog Include Directories" "/home/carlo/basil/firmware/modules|/home/carlo/basil/firmware/modules/utils" -process "Synthesize - XST"
    project set "Verilog 2001" "true" -process "Synthesize - XST"
-   project set "Verilog Macros" "DV1=6 | FX1_d=3 | FX1_m=10 | FX2_d=$FX2_div | FX2_m=$FX2_mult | prd=6.25" -process "Synthesize - XST"
+   project set "Verilog Macros" "DV1=$div1 | FX1_d=3 | FX1_m=10 | FX2_d=8 | FX2_m=2 | prd=25" -process "Synthesize - XST"
    project set "Work Directory" "/home/carlo/fe65_p2/firmware/ise/xst" -process "Synthesize - XST"
    project set "Write Timing Constraints" "false" -process "Synthesize - XST"
    project set "Other XST Command Line Options" "" -process "Synthesize - XST"
@@ -282,11 +245,9 @@ proc main {} {
 		puts "Done"
 	
 		set oldname "fe65p2_mio.bit"
-		set newname "fe65p2_mio_CMD$index($i).bit"
+		set newname "fe65p2_mio_SPI$index($i).bit"
 		file rename -force $oldname $newname
    }
-
-#   project close
    return true
 }
 

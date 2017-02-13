@@ -1,5 +1,6 @@
 ﻿import numpy as np
-from bokeh.charts import HeatMap, bins, output_file, vplot, hplot, show
+from bokeh.charts import HeatMap, bins, output_file, show
+from bokeh.models.layouts import Column, Row
 from bokeh.palettes import RdYlGn6, RdYlGn9, BuPu9, Spectral11
 from bokeh.plotting import figure
 from bokeh.models import LinearAxis, Range1d
@@ -323,7 +324,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):
                                            Noise_gauss['mu'], Noise_gauss['sigma']), line_color="#D95B43", line_width=8,
                             alpha=0.7)
 
-        return vplot(hplot(hm_th, plt_th_dist), hplot(hm_noise, plt_noise_dist), hplot(hm1, single_scan)), s_hist
+        return Column(Row(hm_th, plt_th_dist), Row(hm_noise, plt_noise_dist), Row(hm1, single_scan)), s_hist
 
 
 if __name__ == "__main__":

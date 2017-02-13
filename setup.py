@@ -15,7 +15,7 @@ author = 'Tomasz Hemperek'
 author_email = 'hemeprek@physik.uni-bonn.de'
 
 # requirements for core functionality
-install_requires = ['basil-daq==2.4.3', 'bitarray>=0.8.1', 'matplotlib', 'numpy', 'progressbar-latest>=2.4', 'tables', 'pyyaml', 'scipy']
+install_requires = ['basil-daq>=2.4.3', 'bitarray>=0.8.1', 'matplotlib', 'numpy', 'progressbar-latest>=2.4', 'tables', 'pyyaml', 'scipy']
 
 setup(
     name='fe65p2',

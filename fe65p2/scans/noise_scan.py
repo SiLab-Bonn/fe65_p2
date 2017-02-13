@@ -10,25 +10,36 @@ logging.basicConfig(level=logging.INFO,
 import numpy as np
 import bitarray
 import tables as tb
-from bokeh.charts import output_file, show, vplot, hplot, save
+from bokeh.charts import output_file, hplot, save, show
+from bokeh.models.layouts import Column, Row
 from progressbar import ProgressBar
 import os
 
 local_configuration = {
+    "columns": [True]*2 +[False]*14,
     "stop_pixel_count": 4,
+    "repeats" : 1000,
+    #pars
+    "PrmpVbpDac": 36,
+    "vthin1Dac": 100,
     "vthin2Dac": 0,
-    "vthin1Dac": 130,
-    "columns": [True] * 2 + [False] * 14,
-    "preCompVbnDac": 110,
-    "PrmpVbpDac": 80,
+    "vffDac" : 24,
+    "PrmpVbnFolDac" : 51,
+    "vbnLccDac" : 1,
+    "compVbnDac":25,
+    "preCompVbnDac" : 50,
+
 }
 
 
 class NoiseScan(ScanBase):
     scan_id = "noise_scan"
 
-    def scan(self, columns=[True] * 16, PrmpVbpDac=80, stop_pixel_count=4, preCompVbnDac=110, vthin2Dac=0,
-             vthin1Dac=130, **kwargs):
+    def __init__(self):
+        super(NoiseScan, self).__init__()
+        self.vth1Dac = 0
+
+    def scan(self, columns=[True] * 16, stop_pixel_count=4, repeats=100000, **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -37,19 +48,19 @@ class NoiseScan(ScanBase):
         repeat : int
             Number of injections.
         '''
-
+        logging.info('\e[31m Starting Noise Scan \e[0m')
         INJ_LO = 0.2
         self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
         self.dut['INJ_HI'].set_voltage(INJ_LO, unit='V')
 
-        self.dut['global_conf']['PrmpVbpDac'] = 80
-        self.dut['global_conf']['vthin1Dac'] = 255
-        self.dut['global_conf']['vthin2Dac'] = 0
-        self.dut['global_conf']['vffDac'] = 24
-        self.dut['global_conf']['PrmpVbnFolDac'] = 51
-        self.dut['global_conf']['vbnLccDac'] = 1
-        self.dut['global_conf']['compVbnDac'] = 25
-        self.dut['global_conf']['preCompVbnDac'] = 50
+        self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
+        self.dut['global_conf']['vthin1Dac'] = kwargs['vthin1Dac']
+        self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
+        self.dut['global_conf']['vffDac'] = kwargs['vffDac']
+        self.dut['global_conf']['PrmpVbnFolDac'] = kwargs['PrmpVbnFolDac']
+        self.dut['global_conf']['vbnLccDac'] = kwargs['vbnLccDac']
+        self.dut['global_conf']['compVbnDac'] = kwargs['compVbnDac']
+        self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
 
         self.dut.write_global()
         self.dut['control']['RESET'] = 0b01
@@ -60,7 +71,7 @@ class NoiseScan(ScanBase):
         self.dut['control']['CLK_OUT_GATE'] = 1
         self.dut['control']['CLK_BX_GATE'] = 1
         self.dut['control'].write()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
         self.dut['control']['RESET'] = 0b11
         self.dut['control'].write()
@@ -95,8 +106,11 @@ class NoiseScan(ScanBase):
         # self.dut['global_conf']['ColSrEn'][:] = bitarray.bitarray(columns)
         self.dut.write_global()
 
+        #logging.info('Temperature: %s', str(self.dut['ntc'].get_temperature('C')))
+
         mask_en = np.zeros([64, 64], dtype=np.bool)
-        mask_tdac = np.ones([64, 64], dtype=np.uint8)
+        #mask_tdac = np.ones([64, 64], dtype=np.uint8)
+        mask_tdac = np.full([64,64], 16, dtype=np.uint8)
 
         for inx, col in enumerate(columns):
             if col:
@@ -118,7 +132,7 @@ class NoiseScan(ScanBase):
 
         self.dut['trigger'].set_delay(100)  # this seems to be working OK problem is probably bad injection on GPAC
         self.dut['trigger'].set_width(1)  # try single
-        self.dut['trigger'].set_repeat(100000)
+        self.dut['trigger'].set_repeat(repeats)
         self.dut['trigger'].set_en(False)
 
         np.set_printoptions(linewidth=150)
@@ -130,17 +144,19 @@ class NoiseScan(ScanBase):
         mask_disable_count = 0
         iteration = 0
 
-        while not finished:
-            with self.readout(scan_param_id=vthin1Dac, fill_buffer=True, clear_buffer=True):
 
-                self.dut['global_conf']['vthin1Dac'] = vthin1Dac
-                self.dut['global_conf']['vthin2Dac'] = vthin2Dac
-                self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
-                self.dut['global_conf']['PrmpVbpDac'] = PrmpVbpDac
+        self.vth1Dac = kwargs['vthin1Dac']
+
+        while not finished:
+            with self.readout(scan_param_id=self.vth1Dac, fill_buffer=True, clear_buffer=True):
+                self.dut['global_conf']['vthin1Dac'] = self.vth1Dac
+                self.dut['global_conf']['vthin2Dac'] =  kwargs['vthin2Dac']
+                self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
+                self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
                 self.dut.write_global()
                 time.sleep(0.1)
 
-                logging.info('Scan iteration: %d (vthin1Dac = %d)', iteration, vthin1Dac)
+                logging.info('Scan iteration: %d (vthin1Dac = %d)', iteration,  self.vth1Dac)
                 pbar = ProgressBar(maxval=10).start()
 
                 for i in range(10):
@@ -152,10 +168,10 @@ class NoiseScan(ScanBase):
                     while not self.dut['trigger'].is_done():
                         pass
 
-            self.dut['global_conf']['vthin1Dac'] = 255
-            self.dut['global_conf']['vthin2Dac'] = 0
-            self.dut['global_conf']['preCompVbnDac'] = 50
-            self.dut['global_conf']['PrmpVbpDac'] = 80
+            self.dut['global_conf']['vthin1Dac'] = kwargs['vthin1Dac'] #setting again to default values
+            self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac'] #values previously hardcoded
+            self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
+            self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
 
             self.dut.write_global()
 
@@ -189,27 +205,28 @@ class NoiseScan(ScanBase):
 
                 logging.debug('col=%d row=%d val=%d mask=%d', i / 64, i % 64, value[i], mask_tdac[col, row])
 
-            if vthin1Dac < 1 or mask_disable_count >= stop_pixel_count:
+            if self.vth1Dac < 1 or mask_disable_count >= stop_pixel_count:
                 finished = True
 
             if not corrected:
-                vthin1Dac -= vthin1DacInc
+                self.vth1Dac -= vthin1DacInc
 
-            time.sleep(0.1)
+            time.sleep(0.001)
 
             self.dut.write_en_mask(mask_en)
             self.dut.write_tune_mask(mask_tdac)
 
             iteration += 1
-
-        self.dut['global_conf']['vthin1Dac'] = vthin1Dac
-        self.dut['global_conf']['vthin2Dac'] = vthin2Dac
-        self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
-        self.dut['global_conf']['PrmpVbpDac'] = PrmpVbpDac
+        self.dut['global_conf']['vthin1Dac'] = self.vth1Dac
+        self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
+        self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
+        self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
 
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Results')
-        self.h5_file.createCArray(scan_results, 'tdac_mask', obj=mask_tdac)
-        self.h5_file.createCArray(scan_results, 'en_mask', obj=mask_en)
+        self.h5_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac)
+        self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en)
+        logging.info('Final vthin1Dac value: %s', str(self.vth1Dac))
+        self.final_vth1=self.vth1Dac
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'
@@ -219,7 +236,7 @@ class NoiseScan(ScanBase):
             meta_data = in_file_h5.root.meta_data[:]
 
             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
-            in_file_h5.createTable(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+            in_file_h5.create_table(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
 
         status_plot = plotting.plot_status(h5_filename)
         occ_plot, H = plotting.plot_occupancy(h5_filename)
@@ -229,7 +246,8 @@ class NoiseScan(ScanBase):
         # scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)
 
         output_file(self.output_filename + '.html', title=self.run_name)
-        save(vplot(hplot(occ_plot, tot_plot, lv1id_plot), t_dac, status_plot))
+        save(Column(Row(occ_plot, tot_plot), t_dac, status_plot))
+        #show(t_dac)
 
 
 if __name__ == "__main__":

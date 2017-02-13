@@ -5,47 +5,66 @@ import time
 import numpy as np
 import bitarray
 import tables as tb
-from bokeh.charts import output_file, show, vplot, hplot, save
+from bokeh.charts import output_file, save, show
+from bokeh.models.layouts import Column, Row
 import yaml
 from basil.dut import Dut
 import logging
-import math
+import os
+import itertools
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
+row = range(1,65,1)
+all_pixels = []
+for (r,c) in itertools.product(row,row):
+    all_pixels.append((r,c))
+
+
 local_configuration = {
     "mask_steps": 1,
     "repeat_command": 101,
-    "scan_range": [0.01, 0.2, 0.01],
-    "vthin1Dac": 29,
-    "preCompVbnDac": 50,
-    "PrmpVbpDac": 20,
-    "columns": [True] * 2 + [True] * 14,
-    "mask_filename": '',
-    "pix_list": [(6, 20), ],
-    "mask_filename": '',
+    "scan_range": [0.005, 0.2, 0.005],#[0.05, 0.55, 0.01], #[0.005, 0.30, 0.01], # [0.01, 0.2, 0.01],# [0.01, 0.20, 0.01], #[0.1, 0.4, 0.05],
+    "columns": [True] * 2 + [False] * 14,
+    "mask_filename": '/media/topcoup/TB/Prmp36_vthA255_vthB0_PreCmp110/col1/output_data/20170119_163931_tu_threshold_scan.h5',
+    "pix_list": [(2,6),(3,3)],
+     #DAC parameters
+    "PrmpVbpDac": 36,
+    "vthin1Dac": 255,
+    "vthin2Dac": 0,
+    "vffDac" : 24,
+    "PrmpVbnFolDac" : 51,
+    "vbnLccDac" : 1,
+    "compVbnDac":25,
+    "preCompVbnDac" : 110
 }
 
 
 class TimewalkScan(ScanBase):
     scan_id = "timewalk_scan"
 
-    def scan(self, pix_list=((6, 20),), mask_steps=4, repeat_command=101, columns=[True] * 16, scan_range=[0, 1.2, 0.1],
-             vthin1Dac=80, vthin2Dac=0, PrmpVbpDac=80, preCompVbnDac=50, mask_filename='', **kwargs):
+    def scan(self, mask_steps=4, repeat_command=101, columns=[True] * 16, pix_list=[], scan_range=[], mask_filename='', **kwargs):
+
         '''Scan loop
         This scan is to measure time walk. The charge injection can be driven by the GPAC or an external device.
         In the latter case the device is Agilent 33250a connected through serial port.
         The time walk and TOT are measured by a TDC module in the FPGA.
         The output is an .h5 file (data) and an .html file with plots.
 
-        Parameters
-        ----------
-        mask : int
-            Number of mask steps.
-        repeat : int
-            Number of injections.
+        To perform a proper timewalk scan a mask_filename i.e. the output of the tuned threshold scan has to be provided.
         '''
+
+        def load_vthin1Dac(mask):
+            if os.path.exists(mask):
+                in_file = tb.open_file(mask, 'r')
+                dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
+                vthrs1 = dac_status['vthin1Dac']
+                logging.info("Loaded vth1 from noise scan: %s", str(vthrs1))
+                return int(vthrs1)
+            else: return 29
+
+        vth1 = load_vthin1Dac(mask_filename)
         inj_factor = 1.0
         INJ_LO = 0.0
         try:
@@ -58,14 +77,14 @@ class TimewalkScan(ScanBase):
             logging.info('External injector not connected. Switch to internal one')
             self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
 
-        self.dut['global_conf']['PrmpVbpDac'] = 80
-        #        self.dut['global_conf']['vthin1Dac'] = 255
-        self.dut['global_conf']['vthin2Dac'] = 0
-        self.dut['global_conf']['vffDac'] = 24
-        self.dut['global_conf']['PrmpVbnFolDac'] = 51
-        self.dut['global_conf']['vbnLccDac'] = 1
-        self.dut['global_conf']['compVbnDac'] = 25
-        self.dut['global_conf']['preCompVbnDac'] = 110  # 50
+        self.dut['global_conf']['PrmpVbpDac'] = int(kwargs.get('PrmpVbpDac', 36))
+        #self.dut['global_conf']['vthin1Dac'] = int(vth1)
+        self.dut['global_conf']['vthin2Dac'] = int(kwargs.get('vthin2Dac', 0))
+        self.dut['global_conf']['preCompVbnDac'] = int(kwargs.get('preCompVbnDac', 110))
+        self.dut['global_conf']['vffDac'] = int(kwargs.get('vffDac', 42))
+        self.dut['global_conf']['PrmpVbnFolDac'] = int(kwargs.get('PrmpVbnFolDac', 51))
+        self.dut['global_conf']['vbnLccDac'] = int(kwargs.get('vbnLccDac',1))
+        self.dut['global_conf']['compVbnDac'] = int(kwargs.get('compVbnDac',25))
 
         self.dut.write_global()
         self.dut['control']['RESET'] = 0b01
@@ -125,7 +144,7 @@ class TimewalkScan(ScanBase):
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
-        self.dut['trigger'].set_delay(400 - 4)
+        self.dut['trigger'].set_delay(400-4)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(False)
@@ -141,8 +160,8 @@ class TimewalkScan(ScanBase):
 
         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2]) / inj_factor
         scan_range = np.append(scan_range, 0.3 / inj_factor)
-        scan_range = np.append(scan_range, 0.6 / inj_factor)
-        scan_range = np.append(scan_range, 1.0 / inj_factor)
+        scan_range = np.append(scan_range, 0.5 / inj_factor)
+        #scan_range = np.append(scan_range, 0.7 / inj_factor)
         self.pixel_list = pix_list
 
         p_counter = 0
@@ -163,39 +182,53 @@ class TimewalkScan(ScanBase):
 
                 with self.readout(scan_param_id=idx + p_counter * len(scan_range)):
                     logging.info('Scan Parameter: %f (%d of %d)', k, idx + 1, len(scan_range))
+
                     self.dut['tdc']['ENABLE'] = True
 
-                    self.dut['global_conf']['vthin1Dac'] = 255
-                    self.dut['global_conf']['vthin2Dac'] = 0
-                    self.dut['global_conf']['PrmpVbpDac'] = 80
-                    self.dut['global_conf']['preCompVbnDac'] = 50
+                    self.dut['global_conf']['vthin1Dac'] = int(vth1)
+                    self.dut['global_conf']['vthin2Dac'] = int(kwargs.get('vthin2Dac', 0))
+                    self.dut['global_conf']['PrmpVbpDac'] = int(kwargs.get('PrmpVbpDac', 36))
+                    self.dut['global_conf']['preCompVbnDac'] = int(kwargs.get('preCompVbnDac', 110))
                     self.dut.write_global()
-                    time.sleep(0.1)
 
-                    self.dut['global_conf']['vthin1Dac'] = vthin1Dac
-                    self.dut['global_conf']['vthin2Dac'] = vthin2Dac
-                    self.dut['global_conf']['PrmpVbpDac'] = PrmpVbpDac
-                    self.dut['global_conf']['preCompVbnDac'] = preCompVbnDac
+                    time.sleep(0.1)
+                    self.dut['global_conf']['vthin1Dac'] = int(vth1)
+                    self.dut['global_conf']['vthin2Dac'] = int(kwargs.get('vthin2Dac', 0))
+                    self.dut['global_conf']['PrmpVbpDac'] = int(kwargs.get('PrmpVbpDac', 36))
+                    self.dut['global_conf']['preCompVbnDac'] = int(kwargs.get('preCompVbnDac', 110))
                     self.dut.write_global()
                     time.sleep(0.1)
+                    #self.dut['global_conf']['PrmpVbnFolDac'] = kwargs['PrmpVbnFolDac']
+                    #self.dut['global_conf']['vbnLccDac'] = kwargs['vbnLccDac']
+                    #self.dut['global_conf']['compVbnDac'] = kwargs['compVbnDac']
+                    #self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
+                    #self.dut.write_global()
+                    #time.sleep(0.1)
+                    #self.dut.write_global()
+                    #time.sleep(0.1)
 
                     self.dut['inj'].start()
 
                     while not self.dut['inj'].is_done():
+                        #time.sleep(0.05)
                         pass
 
                     while not self.dut['trigger'].is_done():
+                        #time.sleep(0.05)
                         pass
 
                     self.dut['tdc'].ENABLE = 0
             p_counter += 1
+
 
     def tdc_table(self, scanrange):
         h5_filename = self.output_filename + '.h5'
         with tb.open_file(h5_filename, 'r+') as in_file_h5:
             raw_data = in_file_h5.root.raw_data[:]
             meta_data = in_file_h5.root.meta_data[:]
-            if (meta_data.shape[0] == 0): return
+            if (meta_data.shape[0] == 0):
+                print 'empty output'
+                return
             repeat_command = in_file_h5.root.meta_data.attrs.kwargs
             a = repeat_command.rfind("repeat_command: ")
             repeat_command = repeat_command[a + len("repeat_command: "):a + len("repeat_command: ") + 7]
@@ -279,7 +312,7 @@ class TimewalkScan(ScanBase):
                                         dtype=[('charge', float), ('pixel_no', int), ('hits', int),
                                                ('tot_ns', float), ('err_tot_ns', float), ('delay_ns', float),
                                                ('err_delay_ns', float)])
-            tdc_table=in_file_h5.createTable(in_file_h5.root, 'tdc_data', avg_tab, filters=self.filter_tables)
+            tdc_table=in_file_h5.create_table(in_file_h5.root, 'tdc_data', avg_tab, filters=self.filter_tables)
             tdc_table.attrs.repeat_command = repeat_command_dic
             thresholds = ()
             expfit0 = ()
@@ -326,15 +359,16 @@ class TimewalkScan(ScanBase):
                                        dtype=[('pixel_no', int), ('td_threshold', float),
                                               ('expfit0', float), ('expfit1', float), ('expfit2', float),
                                               ('expfit3', float)])
-            in_file_h5.createTable(in_file_h5.root, 'td_threshold', thresh, filters=self.filter_tables)
+            in_file_h5.create_table(in_file_h5.root, 'td_threshold', thresh, filters=self.filter_tables)
         p1, p2, single_scan = plotting.plot_timewalk(h5_filename)
         output_file(self.output_filename + '.html', title=self.run_name)
         status = plotting.plot_status(h5_filename)
-        save(hplot(vplot(p1, p2, status), single_scan))
+        save(Row(Column(p1, p2, status), single_scan))
+        #show(p1)
 
 
 if __name__ == "__main__":
     Timescan = TimewalkScan()
     Timescan.start(**local_configuration)
     scanrange = local_configuration['scan_range']
-    Timescan.tdc_table(((scanrange[1] - scanrange[0]) / scanrange[2]) + 3)
+    Timescan.tdc_table(len(np.arange(scanrange[0], scanrange[1], scanrange[2]))+2)

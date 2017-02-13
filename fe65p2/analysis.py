@@ -84,8 +84,8 @@ def analyze_threshold_scan(h5_file_name):
         for entries in range(len(hist_noise_x)-1):
             new_x= np.append(new_x,(hist_noise_x[entries]+hist_noise_x[entries+1])/2)
         hist_noise_x=new_x
-        gauss_thresh = fit_gauss(hist_thresh_x, hist_thresh_y)
-        gauss_noise = fit_gauss(hist_noise_x, hist_noise_y)
+        gauss_thresh = fit_gauss(hist_thresh_x[2:-4], hist_thresh_y[2:-4])
+        gauss_noise = fit_gauss(hist_noise_x[2:-4], hist_noise_y[2:-4])
         thresh_fit_values = {}
         noise_fit_values = {}
         thresh_fit_values['height'] = gauss_thresh[0]
@@ -103,24 +103,24 @@ def analyze_threshold_scan(h5_file_name):
         Noise_results = in_file_h5.create_group("/", 'Noise_results', 'Noise_results')
 
 
-        threshold_hist = in_file_h5.createCArray(Thresh_results, name='Threshold', title='Threshold Histogram',
+        threshold_hist = in_file_h5.create_carray(Thresh_results, name='Threshold', title='Threshold Histogram',
                                       atom=tb.Atom.from_dtype(threshold.dtype),
                                       shape=threshold.shape)
         threshold_hist[:] = threshold
 
 
-        threshold_pure_hist = in_file_h5.createCArray(Thresh_results, name='Threshold_pure',
+        threshold_pure_hist = in_file_h5.create_carray(Thresh_results, name='Threshold_pure',
                                                       title='Threshold_pure Histogram',
                                                       atom=tb.Atom.from_dtype(Threshold_pure.dtype),
                                                       shape=Threshold_pure.shape)
         threshold_pure_hist[:]=Threshold_pure
         threshold_pure_hist.attrs.fitdata_thresh = thresh_fit_values
-        noise_pure_hist = in_file_h5.createCArray(Noise_results, name='Noise_pure',
+        noise_pure_hist = in_file_h5.create_carray(Noise_results, name='Noise_pure',
                                                       title='Noise_pure Histogram',
                                                       atom=tb.Atom.from_dtype(Noise_pure.dtype),
                                                       shape=Noise_pure.shape)
         noise_pure_hist[:] = Noise_pure
-        noise_hist = in_file_h5.createCArray(Noise_results, name='Noise', title='noise Histogram',
+        noise_hist = in_file_h5.create_carray(Noise_results, name='Noise', title='noise Histogram',
                                                  atom=tb.Atom.from_dtype(noise.dtype),
                                                  shape=noise.shape)
         noise_hist[:] = noise
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     pass
 
 def exp(x,*parameters):
-    a,b,c,d= parameters
+    a,b,c,d = parameters
     return d+c*np.exp(-(x+b)/a)
 
 def fit_exp(x_data, y_data,thresh,decline):

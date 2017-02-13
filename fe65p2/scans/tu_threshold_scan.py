@@ -7,7 +7,7 @@ import logging
 import numpy as np
 import bitarray
 import tables as tb
-from bokeh.charts import output_file, save
+from bokeh.charts import output_file, save, show
 from bokeh.models.layouts import Column, Row
 from progressbar import ProgressBar
 from basil.dut import Dut
@@ -30,13 +30,13 @@ local_configuration = {
 #   thrs scan
     "mask_steps":4,
     "repeat_command":100,
-    "scan_range":[0.05, 0.55, 0.01],
+    "scan_range":[0.05, 0.15, 0.005],
     "mask_filename":'',
     "TDAC":16
 }
 
-class ThresholdScan(ScanBase):
-    scan_id = "threshold_scan"
+class ThresholdScanTuned(ScanBase):
+    scan_id = "tu_threshold_scan"
 
 
     def scan(self, mask_steps=4, TDAC=16, scan_range=[0.0, 0.6, 0.01], repeat_command=100, mask_filename='', **kwargs):
@@ -55,12 +55,15 @@ class ThresholdScan(ScanBase):
             if os.path.exists(mask):
                 in_file = tb.open_file(mask, 'r')
                 dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
-                vthrs1 = dac_status['vthin1Dac'] + 3
+                vthrs1 = dac_status['vthin1Dac']
+                if vthrs1 < 252: 
+                    vthrs1+=3
                 print "Loaded vth1 from noise scan: ", vthrs1
                 return vthrs1
             else: return 100
 
         vth1 = load_vthin1Dac(mask_filename)
+        self.final_vth1 = vth1
 
         inj_factor = 1.0
         INJ_LO = 0.0
@@ -74,7 +77,7 @@ class ThresholdScan(ScanBase):
             logging.info('External injector not connected. Switch to internal one')
             self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
 
-        logging.info('starting THRESHOLD SCAN')
+            logging.info('\e[31m Starting Tuned Threshold Scan \e[0m')
         self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
         self.dut['global_conf']['vthin1Dac'] = vth1
         self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
@@ -158,6 +161,7 @@ class ThresholdScan(ScanBase):
         for idx, k in enumerate(scan_range):
             dut['Pulser'].set_voltage(INJ_LO, float(INJ_LO + k), unit='V')
             self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
+            time.sleep(0.5)
 
             bv_mask = bitarray.bitarray(lmask)
 
@@ -207,7 +211,8 @@ class ThresholdScan(ScanBase):
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Masks')
         self.h5_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac)
         self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en)
-        
+
+
 
     def analyze(self):
         h5_filename = self.output_filename +'.h5'
@@ -225,11 +230,24 @@ class ThresholdScan(ScanBase):
         lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
         scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)
         t_dac = plotting.t_dac_plot(h5_filename)
+        with tb.open_file(h5_filename, 'r+') as in_file_h5:
+            tdac_mask = in_file_h5.root.scan_results.tdac_mask
+            en_mask = in_file_h5.root.scan_results.en_mask
+            counter=0
+            for icol,col in enumerate(en_mask):
+                for ipix,pix in enumerate(col):
+                    if pix==True:
+                        if tdac_mask[icol][ipix]==1: counter+=1
+                        in_file_h5.root.Thresh_results.Threshold_pure.attrs.disabled = counter
+            fit_res = in_file_h5.root.Thresh_results.Threshold_pure.attrs.fitdata_thresh
 
         output_file(self.output_filename + '.html', title=self.run_name)
         save(Column(Row(occ_plot, tot_plot, lv1id_plot), scan_pix_hist, t_dac, status_plot))
+        #show(scan_pix_hist)
+        logging.info('Returnin')
+        return fit_res
 
 if __name__ == "__main__":
-    scan = ThresholdScan()
+    scan = ThresholdScanTuned()
     scan.start(**local_configuration)
     scan.analyze()

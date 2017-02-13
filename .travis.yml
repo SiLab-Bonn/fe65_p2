@@ -31,7 +31,7 @@ install:
   - git reset --hard 6ff0d3985a51c681ddd633ad453202c9020c08fe
   - cd ..
 
-  - git clone -b v2.4.3 https://github.com/SiLab-Bonn/basil; cd basil; python setup.py develop; cd ..;
+  - git clone -b v2.4.4 https://github.com/SiLab-Bonn/basil; cd basil; python setup.py develop; cd ..;
 
   # Install basil
   - python setup.py develop

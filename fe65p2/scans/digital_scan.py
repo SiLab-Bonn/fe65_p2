@@ -2,20 +2,31 @@
 from fe65p2.scan_base import ScanBase
 import fe65p2.plotting as  plotting
 import time
-
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 import numpy as np
 import bitarray
-from bokeh.charts import output_file, show, vplot, hplot, save
+from bokeh.charts import output_file, show, save
+from bokeh.models.layouts import Column, Row
 import tables as tb
 from progressbar import ProgressBar
 import os
 
 local_configuration = {
     "mask_steps": 4,
-    "repeat_command": 100
+    "repeat_command": 100,
+    "columns" : [True] * 16,
+
+    #DAC parameters
+    "PrmpVbpDac": 36,
+    "vthin1Dac": 255,
+    "vthin2Dac": 0,
+    "vffDac" : 24,
+    "PrmpVbnFolDac" : 51,
+    "vbnLccDac" : 1,
+    "compVbnDac":25,
+    "preCompVbnDac" : 50
 }
 
 class DigitalScan(ScanBase):
@@ -31,6 +42,25 @@ class DigitalScan(ScanBase):
         repeat : int
             Number of injections.
         '''
+        logging.info('\e[31m Starting Digital Scan \e[0m')
+
+        self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
+        self.dut['global_conf']['vthin1Dac'] = kwargs['vthin1Dac']
+        self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
+        self.dut['global_conf']['vffDac'] = kwargs['vffDac']
+        self.dut['global_conf']['PrmpVbnFolDac'] = kwargs['PrmpVbnFolDac']
+        self.dut['global_conf']['vbnLccDac'] = kwargs['vbnLccDac']
+        self.dut['global_conf']['compVbnDac'] = kwargs['compVbnDac']
+        self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
+        
+        # to change the supply voltage
+        self.dut['VDDA'].set_current_limit(200, unit='mA')
+        self.dut['VDDA'].set_voltage(1.2, unit='V')
+        self.dut['VDDA'].set_enable(True)
+        self.dut['VDDD'].set_voltage(1.2, unit='V')
+        self.dut['VDDD'].set_enable(True)
+        self.dut['VAUX'].set_voltage(1.2, unit='V')
+        self.dut['VAUX'].set_enable(True)
         
         #write InjEnLd & PixConfLd to '1
         self.dut['pixel_conf'].setall(True)
@@ -124,14 +154,14 @@ class DigitalScan(ScanBase):
             meta_data = in_file_h5.root.meta_data[:]
             
             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
-            in_file_h5.createTable(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+            in_file_h5.create_table(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
             
         occ_plot, H = plotting.plot_occupancy(h5_filename)
         tot_plot,_ = plotting.plot_tot_dist(h5_filename)
         lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
 
         output_file(self.output_filename + '.html', title=self.run_name)
-        save(vplot(occ_plot, tot_plot, lv1id_plot))
+        save(Column(occ_plot, tot_plot, lv1id_plot))
             
         return H
 

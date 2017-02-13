@@ -36,6 +36,7 @@ class ScanBase(object):
         if not os.path.exists(self.working_dir):
             os.makedirs(self.working_dir)
 
+        self.final_vth1 = -99
         self.run_name = time.strftime("%Y%m%d_%H%M%S_") + self.scan_id
         self.output_filename = os.path.join(self.working_dir, self.run_name)
 
@@ -59,9 +60,9 @@ class ScanBase(object):
         filter_raw_data = tb.Filters(complib='blosc', complevel=5, fletcher32=False)
         self.filter_tables = tb.Filters(complib='zlib', complevel=5, fletcher32=False)
         self.h5_file = tb.open_file(filename, mode='w', title=self.scan_id)
-        self.raw_data_earray = self.h5_file.createEArray(self.h5_file.root, name='raw_data', atom=tb.UIntAtom(),
+        self.raw_data_earray = self.h5_file.create_earray(self.h5_file.root, name='raw_data', atom=tb.UIntAtom(),
                                                          shape=(0,), title='raw_data', filters=filter_raw_data)
-        self.meta_data_table = self.h5_file.createTable(self.h5_file.root, name='meta_data', description=MetaTable,
+        self.meta_data_table = self.h5_file.create_table(self.h5_file.root, name='meta_data', description=MetaTable,
                                                         title='meta_data', filters=self.filter_tables)
 
         self.meta_data_table.attrs.kwargs = yaml.dump(kwargs)
@@ -95,18 +96,37 @@ class ScanBase(object):
 
         self.dut['control']['RESET'] = 0b10
         self.dut['control'].write()
-
-        logging.info('Power Status: %s', str(self.dut.power_status()))
+        pw=self.dut.power_status()
+        logging.info('Power Status: %s', str(pw))
 
         self.scan(**kwargs)
 
         self.fifo_readout.print_readout_status()
 
-        self.meta_data_table.attrs.power_status = yaml.dump(self.dut.power_status())
+        self.meta_data_table.attrs.power_status = yaml.dump(pw)
         self.meta_data_table.attrs.dac_status = yaml.dump(self.dut.dac_status())
+        self.meta_data_table.attrs.vth1 = yaml.dump(self.final_vth1)
+
+        #temperature
+        #temp = self.dut['ntc'].get_temperature('C')
+        #self.meta_data_table.attrs.temp = yaml.dump(str(temp))
 
         self.h5_file.close()
         logging.info('Data Output Filename: %s', self.output_filename + '.h5')
+
+        #temp and power log
+        if (self.scan_id != "status_scan" and self.scan_id != "temp_scan"):
+            logname = 'reg_'+str(self.scan_id)+'.dat'
+            vth1_set=self.final_vth1
+
+            legend = "Time \t Dig[mA] \t Ana[mA] \t Aux[mA] \t Dig[V] \t vth1 \n"
+            if not os.path.exists("./"+logname):
+                 with open(logname, "a") as t_file:
+                    t_file.write(legend)
+            t_log = time.strftime("%d-%b-%H:%M:%S")+"\t"+str(pw['VDDD[mA]'])+"\t"+str(pw['VDDA[mA]'])+"\t"+str(pw['VAUX[mA]'])+"\t"+str(pw['VDDD[V]'])+"\t"+str(vth1_set)+"\n"
+            with open(logname, "a") as t_file:
+                 t_file.write(t_log)
+
 
         logger.removeHandler(fh)
         self.dut.power_down()
