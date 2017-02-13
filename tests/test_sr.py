@@ -21,7 +21,7 @@ def _preprocess_conf(self, conf):
         cnfg = yaml.load(f)
     
     cnfg['transfer_layer'][0]['type'] = 'SiSim'
-    cnfg['hw_drivers'][0]['no_calibration'] = True
+    cnfg['hw_drivers'][0]['init']['no_calibration'] = True
 
     return cnfg
     

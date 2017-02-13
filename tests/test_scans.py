@@ -24,7 +24,7 @@ def _preprocess_conf(self, conf):
         cnfg = yaml.load(f)
     
     cnfg['transfer_layer'][0]['type'] = 'SiSim'
-    cnfg['hw_drivers'][0]['no_calibration'] = True
+    cnfg['hw_drivers'][0]['init']['no_calibration'] = True
 
     return cnfg
     
@@ -53,7 +53,14 @@ class TestScanDigital(unittest.TestCase):
         repeat_command = 2 
         
         self.scan = DigitalScan()
-        self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
+        
+        import fe65p2.scans.digital_scan 
+        params = fe65p2.scans.digital_scan.local_configuration
+        params['mask_steps'] = mask_steps
+        params['repeat_command'] = repeat_command
+        params['columns'] = [True] + [False] * 15
+        
+        self.scan.start(**params)
         H = self.scan.analyze()
         
         exp = np.empty((64, 64))
@@ -62,9 +69,8 @@ class TestScanDigital(unittest.TestCase):
         
         comp = (H == exp)
         self.assertTrue(comp.all())
-             
 
-    #@unittest.skip("")
+    @unittest.skip("")
     @mock.patch('fe65p2.fe65p2.fe65p2._preprocess_conf', autospec=True, side_effect=lambda *args, **kwargs: _preprocess_conf(*args, **kwargs)) #change interface to SiSim
     def test_scan_analog(self, mock_preprocess):
         
@@ -72,17 +78,26 @@ class TestScanDigital(unittest.TestCase):
         repeat_command = 2 
         
         self.scan = AnalogScan()
-        self.scan.start(mask_steps = mask_steps, repeat_command = repeat_command, columns = [True] + [False] * 15)
+        
+        import fe65p2.scans.analog_scan 
+        params = fe65p2.scans.analog_scan.local_configuration
+        params['mask_steps'] = mask_steps
+        params['repeat_command'] = repeat_command
+        params['columns'] = [True] + [False] * 15
+        
+        self.scan.start(**params)
         H = self.scan.analyze()
         
         exp = np.empty((64, 64))
         exp[:,:] = 0
         exp[:4,:] = repeat_command
         
+        print H
+        print exp
+        
         comp = (H == exp)
         self.assertTrue(comp.all())
-    
-    
+        
     def tearDown(self):
         self.scan.dut.close()
         time.sleep(10)

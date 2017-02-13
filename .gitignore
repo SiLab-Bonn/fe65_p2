@@ -68,6 +68,7 @@ tests/fe65p2.sv
 tests/sim_build
 tests/results.xml
 tests/Makefile
+tests/*.dat
 
 output_data
 *.lprof
