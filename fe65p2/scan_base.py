@@ -125,11 +125,11 @@ class ScanBase(object):
 
             legend = "Time \t Dig[mA] \t Ana[mA] \t Aux[mA] \t Dig[V] \t vth1 \n"
             if not os.path.exists("./"+logname):
-                 with open(logname, "a") as t_file:
+                with open(logname, "a") as t_file:
                     t_file.write(legend)
             t_log = time.strftime("%d-%b-%H:%M:%S")+"\t"+str(pw['VDDD[mA]'])+"\t"+str(pw['VDDA[mA]'])+"\t"+str(pw['VAUX[mA]'])+"\t"+str(pw['VDDD[V]'])+"\t"+str(vth1_set)+"\n"
             with open(logname, "a") as t_file:
-                 t_file.write(t_log)
+                t_file.write(t_log)
 
 
         self.logger.removeHandler(self.fh)
@@ -151,6 +151,8 @@ class ScanBase(object):
             time.sleep(0.1)
             self.fifo_readout.print_readout_status()
             self._first_read = True
+
+        self.dut['rx'].ENABLE_RX = 1
 
         self.start_readout(*args, **kwargs)
         yield
