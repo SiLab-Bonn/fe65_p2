@@ -19,18 +19,18 @@ local_configuration = {
     "columns":[True] * 2 + [False] * 14,
 #   DAC parameters
     "PrmpVbpDac":36,
-    "vthin1Dac":255,
+    "vthin1Dac":50,
     "vthin2Dac":0,
     "vffDac":24,
     "PrmpVbnFolDac":51,
     "vbnLccDac":1,
     "compVbnDac":25,
-    "preCompVbnDac":110,
+    "preCompVbnDac":100,
 
 #   thrs scan
     "mask_steps":4,
     "repeat_command":100,
-    "scan_range":[0.05, 0.55, 0.01],
+    "scan_range":[0.1, 1.0, 0.02],
     "mask_filename":'',
     "TDAC":16
 }
@@ -58,9 +58,10 @@ class ThresholdScan(ScanBase):
                 vthrs1 = dac_status['vthin1Dac'] + 3
                 print "Loaded vth1 from noise scan: ", vthrs1
                 return vthrs1
-            else: return 100
+            else: return kwargs['vthin1Dac']
 
         vth1 = load_vthin1Dac(mask_filename)
+        print vth1
 
         inj_factor = 1.0
         INJ_LO = 0.0
@@ -68,7 +69,7 @@ class ThresholdScan(ScanBase):
             dut = Dut(ScanBase.get_basil_dir(self)+'/examples/lab_devices/agilent33250a_pyserial.yaml')
             dut.init()
             logging.info('Connected to '+str(dut['Pulser'].get_info()))
-        except RuntimeError:
+        except:
             INJ_LO = 0.2
             inj_factor = 2.0
             logging.info('External injector not connected. Switch to internal one')
@@ -156,7 +157,7 @@ class ThresholdScan(ScanBase):
         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2]) / inj_factor
 
         for idx, k in enumerate(scan_range):
-            dut['Pulser'].set_voltage(INJ_LO, float(INJ_LO + k), unit='V')
+#             dut['Pulser'].set_voltage(INJ_LO, float(INJ_LO + k), unit='V')
             self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
 
             bv_mask = bitarray.bitarray(lmask)
