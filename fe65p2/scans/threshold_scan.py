@@ -1,5 +1,6 @@
 from fe65p2.scan_base import ScanBase
 import fe65p2.plotting as plotting
+import fe65p2.DGC_plotting as DGC_plotting
 import time
 import fe65p2.analysis as analysis
 import yaml
@@ -9,38 +10,44 @@ import bitarray
 import tables as tb
 from bokeh.charts import output_file, save
 from bokeh.models.layouts import Column, Row
+
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.backends.backend_pdf import PdfFile
+import matplotlib.pyplot as plt
+
+
 from progressbar import ProgressBar
 from basil.dut import Dut
 import os
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 local_configuration = {
-    "columns":[True] * 2 + [False] * 14,
-#   DAC parameters
-    "PrmpVbpDac":36,
-    "vthin1Dac":50,
-    "vthin2Dac":0,
-    "vffDac":24,
-    "PrmpVbnFolDac":51,
-    "vbnLccDac":1,
-    "compVbnDac":25,
-    "preCompVbnDac":100,
+    "columns": [True] * 2 + [False] * 14,
+    #   DAC parameters
+    "PrmpVbpDac": 36,
+    "vthin1Dac": 120,
+    "vthin2Dac": 0,
+    "vffDac": 24,
+    "PrmpVbnFolDac": 51,
+    "vbnLccDac": 1,
+    "compVbnDac": 25,
+    "preCompVbnDac": 110,
 
-#   thrs scan
-    "mask_steps":4,
-    "repeat_command":100,
-    "scan_range":[0.1, 1.0, 0.02],
-    "mask_filename":'',
-    "TDAC":16
+    #   thrs scan
+    "mask_steps": 4,
+    "repeat_command": 100,
+    "scan_range": [0.1, 1.0, 0.02],
+    #"mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20171121_153906_noise_scan.h5',
+    "TDAC": 16
 }
+
 
 class ThresholdScan(ScanBase):
     scan_id = "threshold_scan"
 
-
-    def scan(self, mask_steps=4, TDAC=16, scan_range=[0.0, 0.6, 0.01], repeat_command=100, mask_filename='', **kwargs):
-
+    def scan(self, mask_steps=4, TDAC=16, scan_range=[0.0, 0.6, 0.02], repeat_command=1000, mask_filename='', **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -55,10 +62,11 @@ class ThresholdScan(ScanBase):
             if os.path.exists(mask):
                 in_file = tb.open_file(mask, 'r')
                 dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
-                vthrs1 = dac_status['vthin1Dac'] + 3
+                vthrs1 = dac_status['vthin1Dac'] + 4
                 print "Loaded vth1 from noise scan: ", vthrs1
                 return vthrs1
-            else: return kwargs['vthin1Dac']
+            else:
+                return kwargs['vthin1Dac']
 
         vth1 = load_vthin1Dac(mask_filename)
         print vth1
@@ -66,13 +74,15 @@ class ThresholdScan(ScanBase):
         inj_factor = 1.0
         INJ_LO = 0.0
         try:
-            dut = Dut(ScanBase.get_basil_dir(self)+'/examples/lab_devices/agilent33250a_pyserial.yaml')
+            dut = Dut(ScanBase.get_basil_dir(self) +
+                      '/examples/lab_devices/agilent33250a_pyserial.yaml')
             dut.init()
-            logging.info('Connected to '+str(dut['Pulser'].get_info()))
+            logging.info('Connected to ' + str(dut['Pulser'].get_info()))
         except:
             INJ_LO = 0.2
             inj_factor = 2.0
-            logging.info('External injector not connected. Switch to internal one')
+            logging.info(
+                'External injector not connected. Switch to internal one')
             self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
 
         logging.info('starting THRESHOLD SCAN')
@@ -84,6 +94,11 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['vbnLccDac'] = kwargs['vbnLccDac']
         self.dut['global_conf']['compVbnDac'] = kwargs['compVbnDac']
         self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
+
+        self.dut['global_conf']['vthin1Dac'] = 255
+        self.dut['global_conf']['vthin2Dac'] = 0
+        self.dut['global_conf']['preCompVbnDac'] = 50
+        self.dut['global_conf']['PrmpVbpDac'] = 80
 
         self.dut.write_global()
         self.dut['control']['RESET'] = 0b01
@@ -108,11 +123,11 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['PixConfLd'] = 0
         self.dut.write_global()
 
-        #self.dut['global_conf']['OneSr'] = 0  #all multi columns in parallel
-        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray([True] * 16) #(columns)
-        self.dut['global_conf']['ColSrEn'][:] = bitarray.bitarray([True] * 16)
+        columns = kwargs['columns']
+        # self.dut['global_conf']['OneSr'] = 0  #all multi columns in parallel
+        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
+        self.dut['global_conf']['ColSrEn'][:] = bitarray.bitarray(columns)
         self.dut.write_global()
-
 
         self.dut['pixel_conf'].setall(False)
         self.dut.write_pixel()
@@ -120,12 +135,12 @@ class ThresholdScan(ScanBase):
         self.dut.write_global()
         self.dut['global_conf']['InjEnLd'] = 0
 
-        mask_en = np.full([64,64], False, dtype = np.bool)
-        mask_tdac = np.full([64,64], TDAC, dtype = np.uint8)
+        mask_en = np.full([64, 64], False, dtype=np.bool)
+        mask_tdac = np.full([64, 64], TDAC, dtype=np.uint8)
 
         for inx, col in enumerate(kwargs['columns']):
-           if col:
-                mask_en[inx*4:(inx+1)*4,:]  = True
+            if col:
+                mask_en[inx * 4:(inx + 1) * 4, :] = True
 
         if mask_filename:
             logging.info('***** Using pixel mask from file: %s', mask_filename)
@@ -140,44 +155,47 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['OneSr'] = 0
         self.dut.write_global()
 
-        self.dut['inj'].set_delay(10000) #this seems to be working OK problem is probably bad injection on GPAC usually +0
+        # this seems to be working OK problem is probably bad injection on GPAC usually +0
+        self.dut['inj'].set_delay(10000)
         self.dut['inj'].set_width(1000)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
-        self.dut['trigger'].set_delay(400-4)
+        self.dut['trigger'].set_delay(400 - 4)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
 
-        lmask = [1] + ( [0] * (mask_steps-1) )
-        lmask = lmask * ( (64 * 64) / mask_steps  + 1 )
-        lmask = lmask[:64*64]
+        lmask = [1] + ([0] * (mask_steps - 1))
+        lmask = lmask * ((64 * 64) / mask_steps + 1)
+        lmask = lmask[:64 * 64]
 
-        scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2]) / inj_factor
+        scan_range = np.arange(
+            scan_range[0], scan_range[1], scan_range[2]) / inj_factor
 
         for idx, k in enumerate(scan_range):
-#             dut['Pulser'].set_voltage(INJ_LO, float(INJ_LO + k), unit='V')
+            #dut['Pulser'].set_voltage(INJ_LO, float(INJ_LO + k), unit='V')
             self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
 
             bv_mask = bitarray.bitarray(lmask)
 
             #logging.info('Temperature: %s', str(self.dut['ntc'].get_temperature('C')))
 
-            with self.readout(scan_param_id = idx):
-                logging.info('Scan Parameter: %f (%d of %d)', k, idx+1, len(scan_range))
+            with self.readout(scan_param_id=idx):
+                logging.info('Scan Parameter: %f (%d of %d)',
+                             k, idx + 1, len(scan_range))
                 pbar = ProgressBar(maxval=mask_steps).start()
                 for i in range(mask_steps):
 
-                    self.dut['global_conf']['vthin1Dac'] = kwargs['vthin1Dac']
-                    self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
-                    self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
-                    self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
+                    self.dut['global_conf']['vthin1Dac'] = 255
+                    self.dut['global_conf']['vthin2Dac'] = 0
+                    self.dut['global_conf']['preCompVbnDac'] = 50
+                    self.dut['global_conf']['PrmpVbpDac'] = 80
 
                     self.dut.write_global()
                     time.sleep(0.1)
 
-                    self.dut['pixel_conf'][:]  = bv_mask
+                    self.dut['pixel_conf'][:] = bv_mask
                     self.dut.write_pixel_col()
                     self.dut['global_conf']['InjEnLd'] = 1
                     #self.dut['global_conf']['PixConfLd'] = 0b11
@@ -205,30 +223,72 @@ class ThresholdScan(ScanBase):
                         time.sleep(0.05)
                         pass
 
-        scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Masks')
+        scan_results = self.h5_file.create_group(
+            "/", 'scan_results', 'Scan Masks')
         self.h5_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac)
         self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en)
-        
 
     def analyze(self):
-        h5_filename = self.output_filename +'.h5'
+
+        pdfName = self.output_filename + '.pdf'
+        pp = PdfPages(pdfName)
+        print pp
+        h5_filename = self.output_filename + '.h5'
         with tb.open_file(h5_filename, 'r+') as in_file_h5:
             raw_data = in_file_h5.root.raw_data[:]
             meta_data = in_file_h5.root.meta_data[:]
 
             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
-            in_file_h5.create_table(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
-            #self.meta_data_table.attrs.dac_status
+            in_file_h5.create_table(
+                in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+            # self.meta_data_table.attrs.dac_status
         analysis.analyze_threshold_scan(h5_filename)
-        status_plot = plotting.plot_status(h5_filename)
-        occ_plot, H = plotting.plot_occupancy(h5_filename)
-        tot_plot,_ = plotting.plot_tot_dist(h5_filename)
-        lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
-        scan_pix_hist, _ = plotting.scan_pix_hist(h5_filename)
-        t_dac = plotting.t_dac_plot(h5_filename)
+        status_plot = DGC_plotting.plot_status(h5_filename)
+        pp.savefig(status_plot)
+        occ_plot = DGC_plotting.plot_occupancy(h5_filename)
+        pp.savefig(occ_plot)
+        plt.clf()
+        tot_plot = DGC_plotting.plot_tot_dist(h5_filename)
+        pp.savefig(tot_plot)
+        plt.clf()
+        lv1id_plot = DGC_plotting.plot_lv1id_dist(h5_filename)
+        pp.savefig(lv1id_plot)
+        plt.clf()
+        singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, chi2plot = DGC_plotting.scan_pix_hist(
+            h5_filename)
+        pp.savefig(singlePixPolt)
+        plt.clf()
+        pp.savefig(thresHM)
+        plt.clf()
+        pp.savefig(thresVsPix)
+        plt.clf()
+        pp.savefig(thresDist)
+        plt.clf()
+        pp.savefig(noiseHM)
+        plt.clf()
+        pp.savefig(noiseDist)
+        plt.clf()
+        pp.savefig(chi2plot)
+        plt.clf()
+        t_dac_plot = DGC_plotting.t_dac_plot(h5_filename)
+        pp.savefig(t_dac_plot)
+        pp.close()
+
+        status_plot1 = plotting.plot_status(h5_filename)
+        occ_plot1, H = plotting.plot_occupancy(h5_filename)
+        tot_plot1, _ = plotting.plot_tot_dist(h5_filename)
+        lv1id_plot1, _ = plotting.plot_lv1id_dist(h5_filename)
+        scan_pix_hist1, _ = plotting.scan_pix_hist(h5_filename)
+        t_dac1 = plotting.t_dac_plot(h5_filename)
 
         output_file(self.output_filename + '.html', title=self.run_name)
-        save(Column(Row(occ_plot, tot_plot, lv1id_plot), scan_pix_hist, t_dac, status_plot))
+
+        save(Column(Row(occ_plot1, tot_plot1, lv1id_plot1),
+                    scan_pix_hist1, t_dac1, status_plot1))
+
+#output_file(self.output_filename + '.html', title=self.run_name)
+#save(Column(Row(occ_plot, tot_plot, lv1id_plot), scan_pix_hist, t_dac, status_plot))
+
 
 if __name__ == "__main__":
     scan = ThresholdScan()
