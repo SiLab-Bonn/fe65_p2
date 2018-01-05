@@ -24,10 +24,10 @@ logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 local_configuration = {
-    "columns": [True] * 2 + [False] * 14,
+    "columns": [True] * 16,
     #   DAC parameters
     "PrmpVbpDac": 36,
-    "vthin1Dac": 120,
+    "vthin1Dac": 80,
     "vthin2Dac": 0,
     "vffDac": 24,
     "PrmpVbnFolDac": 51,
@@ -36,10 +36,10 @@ local_configuration = {
     "preCompVbnDac": 110,
 
     #   thrs scan
-    "mask_steps": 4,
-    "repeat_command": 100,
-    "scan_range": [0.1, 1.0, 0.02],
-    #"mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20171121_153906_noise_scan.h5',
+    "mask_steps": 8,
+    "repeat_command": 1000,
+    "scan_range": [0.05, 1.05, 0.025],
+    "mask_filename": '',
     "TDAC": 16
 }
 
@@ -47,7 +47,7 @@ local_configuration = {
 class ThresholdScan(ScanBase):
     scan_id = "threshold_scan"
 
-    def scan(self, mask_steps=4, TDAC=16, scan_range=[0.0, 0.6, 0.02], repeat_command=1000, mask_filename='', **kwargs):
+    def scan(self, mask_steps=4, TDAC=16, scan_range=[0.0, 1.0, 0.02], repeat_command=1000, mask_filename='', **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -63,7 +63,7 @@ class ThresholdScan(ScanBase):
                 in_file = tb.open_file(mask, 'r')
                 dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
                 vthrs1 = dac_status['vthin1Dac'] + 4
-                print "Loaded vth1 from noise scan: ", vthrs1
+                logging.info("Loaded vth1 from noise scan: %d", vthrs1)
                 return vthrs1
             else:
                 return kwargs['vthin1Dac']
@@ -72,18 +72,25 @@ class ThresholdScan(ScanBase):
         print vth1
 
         inj_factor = 1.0
-        INJ_LO = 0.0
-        try:
-            dut = Dut(ScanBase.get_basil_dir(self) +
-                      '/examples/lab_devices/agilent33250a_pyserial.yaml')
-            dut.init()
-            logging.info('Connected to ' + str(dut['Pulser'].get_info()))
+
+        try:  # pulser
+            pulser = Dut(ScanBase.get_basil_dir(self) +
+                         '/examples/lab_devices/agilent33250a_pyserial.yaml')
+            pulser.init()
+            logging.info('Connected to ' + str(pulser['Pulser'].get_info()))
+            pulser['Pulser'].set_usr_func("FEI4_PULSE")
+            pulser['Pulser'].set_output_pol("NORM")
+            # pulser['Pulser'].set_burst_mode("TRIG")
+            # pulser['Pulser'].burst_cycles("1.0")
+            # pulser['Pulser'].set_voltage(0.2, 1., unit='V')
+            # rise = 5e-9
+            # pulser['Pulser'].set_rise_time("%s" % rise)
+            # logging.info('Pulse rise time set to %s' % rise)
         except:
-            INJ_LO = 0.2
-            inj_factor = 2.0
+            # INJ_LO = 0.2
+            #inj_factor = 2.0
             logging.info(
                 'External injector not connected. Switch to internal one')
-            self.dut['INJ_LO'].set_voltage(INJ_LO, unit='V')
 
         logging.info('starting THRESHOLD SCAN')
         self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
@@ -154,9 +161,9 @@ class ThresholdScan(ScanBase):
 
         self.dut['global_conf']['OneSr'] = 0
         self.dut.write_global()
-
+        pulse_width = 800  # unit: ns
         # this seems to be working OK problem is probably bad injection on GPAC usually +0
-        self.dut['inj'].set_delay(10000)
+        self.dut['inj'].set_delay(80000)  # 25ns per clock cycle
         self.dut['inj'].set_width(1000)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
@@ -166,6 +173,8 @@ class ThresholdScan(ScanBase):
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
 
+        pulser['Pulser'].set_pulse_period(pulse_width * 10**-9)
+
         lmask = [1] + ([0] * (mask_steps - 1))
         lmask = lmask * ((64 * 64) / mask_steps + 1)
         lmask = lmask[:64 * 64]
@@ -173,9 +182,10 @@ class ThresholdScan(ScanBase):
         scan_range = np.arange(
             scan_range[0], scan_range[1], scan_range[2]) / inj_factor
 
+        INJ_LO = scan_range[0]
         for idx, k in enumerate(scan_range):
-            #dut['Pulser'].set_voltage(INJ_LO, float(INJ_LO + k), unit='V')
-            self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
+            pulser['Pulser'].set_voltage(0., INJ_LO + k, unit='V')
+            # self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
 
             bv_mask = bitarray.bitarray(lmask)
 
@@ -253,6 +263,11 @@ class ThresholdScan(ScanBase):
         plt.clf()
         lv1id_plot = DGC_plotting.plot_lv1id_dist(h5_filename)
         pp.savefig(lv1id_plot)
+        plt.clf()
+        threshm2, noisehm2 = DGC_plotting.thresh_pix_heatmap(h5_filename)
+        pp.savefig(threshm2)
+        plt.clf()
+        pp.savefig(noisehm2)
         plt.clf()
         singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, chi2plot = DGC_plotting.scan_pix_hist(
             h5_filename)

@@ -20,16 +20,17 @@ import bitarray
 import tables as tb
 from bokeh.charts import output_file, hplot, save, show
 from bokeh.models.layouts import Column, Row
+from basil.dut import Dut
 from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "columns": [True] * 2 + [False] * 14,
-    "stop_pixel_count": 4,
-    "repeats": 100000,
+    "columns": [False] * 14 + [True] * 2 + [False] * 0,
+    "stop_pixel_count": 10,
+    "repeats": 10000,
     # pars
     "PrmpVbpDac": 36,
-    "vthin1Dac": 50,
+    "vthin1Dac": 100,
     "vthin2Dac": 0,
     "vffDac": 24,
     "PrmpVbnFolDac": 51,
@@ -47,7 +48,7 @@ class NoiseTuning(ScanBase):
         super(NoiseTuning, self).__init__()
         self.vth1Dac = 0
 
-    def scan(self, stop_pixel_count=5, repeats=100000, **kwargs):
+    def scan(self, stop_pixel_count=1000, repeats=100000, **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -232,6 +233,12 @@ class NoiseTuning(ScanBase):
             # if num disables is > 5% of chip/test area
             if self.vth1Dac < 1 or np.mean(mask_tdac[mask_en == True]) >= 15 or mask_disable_count >= stop_pixel_count:
                 finished = True
+                if self.vth1Dac < 1:
+                    logging.info('exit from lowest vth1Dac')
+                if np.mean(mask_tdac[mask_en == True]) >= 15:
+                    logging.info('exit from average tdac >=15')
+                if mask_disable_count >= stop_pixel_count:
+                    logging.info('exit from hitting max diable pixel count')
 
             # TODO: bin 16 doesnt get anything... all in bin 15
 

@@ -8,7 +8,7 @@ import yaml
 
 
 def cap_fac():
-    return 7.9891
+    return 7.9891  # fF?
 
 
 def analyze_threshold_scan(h5_file_name):
@@ -50,9 +50,11 @@ def analyze_threshold_scan(h5_file_name):
             h_count = h_count[:repeat_command + 10]
             pix_scan_hist[param] = np.pad(
                 h_count, (0, (repeat_command + 10) - h_count.shape[0]), 'constant')
+            
 
         log_hist = np.log10(pix_scan_hist)
         log_hist[~np.isfinite(log_hist)] = 0
+        #pix_scan_hist_flip = np.swapaxes(pix_scan_hist,0,1)
 
         threshold = np.empty(64 * 64)
         noise = np.empty(64 * 64)
@@ -67,6 +69,7 @@ def analyze_threshold_scan(h5_file_name):
             chi2[pix] = fitOut[3]
         shape = en_mask.shape
         ges = 1
+
         for i in range(2):
             ges = ges * shape[i]
         Noise_pure = ()
@@ -120,11 +123,19 @@ def analyze_threshold_scan(h5_file_name):
             "/", 'Noise_results', 'Noise_results')
         Chisq_results = in_file_h5.create_group(
             "/", 'Chisq_results', 'ChiSq_results')
-        Scurves_results = in_file_h5.create_group(
-            "/", 'Scurves_results', 'Scurves_results')
+        Scurves_Measurments = in_file_h5.create_group(
+            "/", 'Scurves_Measurments', 'Scurves_Measurments')
 
-        scurve_hist = in_file_h5.create_carray(Scurves_results, name='Scurve', title='Scurve Histogram',
+        scurve_hist_unform = in_file_h5.create_carray(Scurves_Measurments, name='Scurve', title='Scurve Measurements',
+                                               obj=s_hist)
+        #scurve_hist_unform[:]=
+        scurve_hist = in_file_h5.create_carray(Scurves_Measurments, name='Scurve_formatted', title='Scurve Histogram',
                                                obj=s_hist.reshape((64, 64, scan_range_inx.shape[0])))
+        #need one that is num of occurances vs scan param ... go from the orginal s_hist -> pix_scan_hist
+        scurve_thresh_hm = in_file_h5.create_carray(Scurves_Measurments, name = 'threshold_hm', title='numver of pix in bins/scan param', obj=pix_scan_hist)
+
+        #scurve_hist[:]=scurve_formatted
+
         # atom=tb.Atom.from_dtype(
         #    Scurves_results.dtype),
         # shape=Scurves_results.shape,
@@ -176,15 +187,6 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command):
     q_max = max(PlsrDAC)
     M = np.sum(PlsrDAC)
     mu_guess = q_max - M / maxInject
-    '''
-    i = 0
-    while i in len(PlsrDAC):
-        if mu_und < mu_guess:
-            mu_und += PlsrDAC[i]
-        else:
-            mu_ovr += maxInject - PlsrDAC
-    sigma_guess = ((mu_ovr + mu_und) / maxInject) * np.sqrt(np.pi / 2)
-    '''
 
     max_occ = np.median(scurve_data[index:])
     threshold = PlsrDAC[index]
@@ -200,8 +202,8 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command):
             popt = [0, 0, 0]
             logging.info('Fit did not work scurve: %s %s %s', str(popt[0]),
                          str(popt[1]), str(popt[2]))
-
-    chi2 = np.sum(np.diff(PlsrDAC - scurve(scurve_data, *popt))**2)
+    # TODO: fix chi2!
+    chi2 = np.sum((np.diff(scurve_data - scurve(PlsrDAC, *popt))**2)*repeat_command)
 
     if popt[1] < 0:  # threshold < 0 rarely happens if fit does not work
         popt = [0, 0, 0]

@@ -127,7 +127,7 @@ class fe65p2(Dut):
         # size of global register
         self['global_conf'].set_size(145)
 
-        #write + start
+        # write + start
         self['global_conf'].write()
 
         # wait for finish
@@ -140,7 +140,7 @@ class fe65p2(Dut):
         62 -> 125    62(126) -> 127  |  62(190) -> 1(129)     62(254) -> 3(131)
                                         61(189) -> 4(132)     61(253) -> 6(134)
         3 -> 4       3(67)   -> 6    |  60(187) -> 5(133)     60(252) -> 7(135)
-        2 -> 5       2(66)   -> 7    |  
+        2 -> 5       2(66)   -> 7    |
         1 -> 0       1(65)   -> 2    |  1(129) -> 124(252)       1(193) -> 126(254)
         0 -> 1       0(64)   -> 3    |  0(128) -> 125(253)       0(192) -> 127(255)
 
@@ -173,7 +173,7 @@ class fe65p2(Dut):
             mask_gen = self.mask_sr(mask)
             self['pixel_conf'][:] = mask_gen
 
-        #pixels in multi_column
+        # pixels in multi_column
         self['pixel_conf'].set_size(16 * 4 * 64)
 
         # enable writing pixels
@@ -196,7 +196,7 @@ class fe65p2(Dut):
 
     def write_pixel_col(self, ld=False):
 
-        #pixels in multi_column
+        # pixels in multi_column
         self['pixel_conf'].set_size(4 * 64)
 
         # enable writing pixels
@@ -324,6 +324,48 @@ class fe65p2(Dut):
             staus[dac] = int(str(self['global_conf'][dac]), 2)
 
         return staus
+
+    def set_for_configuration(self):
+        self['global_conf']['vthin1Dac'] = 255
+        self['global_conf']['vthin2Dac'] = 0
+        self['global_conf']['preCompVbnDac'] = 50
+        self['global_conf']['PrmpVbpDac'] = 80
+        self.write_global()
+
+    def start_up(self):
+        self['control']['RESET'] = 0b01
+        self['control']['DISABLE_LD'] = 0
+        self['control'].write()
+
+        self['control']['CLK_OUT_GATE'] = 1
+        self['control']['CLK_BX_GATE'] = 1
+        self['control'].write()
+        time.sleep(0.1)
+
+        self['control']['RESET'] = 0b11
+        self['control'].write()
+
+    def scan_loop(self, scanType="none", repeat_command=100, use_delay=True, additional_delay=0, mask_steps=4,
+                  enable_mask_steps=None, same_mask_for_all_qc=False, bol_function=None, eol_function=None, digital_injection=False,
+                  enable_shift_masks=None, disable_shift_masks=None,
+                  restore_shift_masks=True, mask=None):
+        '''Parameters:
+        scanType (string):                  switch for the desired scan
+            options -> noise_tune, analog, threshold, timewalk, digital, schmoo
+        repeat_command (bool):              number of reps for a command per mask step
+        use_delay (bool):                   add additional delay to the command
+        additional_delay (int):             additional delay to inc the command-to-command delay [clock cycles / ### ns] TODO: number???
+        mask_steps (int):                   number of mask steps (have found 4 to work well for all scans as of 22/11/17)
+        enable_mask_steps (list,tuple):     list of mask steps to be applied, default is all. From 0 to (mask-1). A value equal None or empty list will select all mask steps.
+        same_mask_for_all_qc (bool):        use same mask for all quad columns. only effects shift masks (enable_shift_masks). Enabling is a good call since all quad columns will have the same configuration and the scan speed can increased by an order of magnitude.
+        bol_function (function):            beginning of loop function called each time before sending a command. Argument is a function pointer (without braces) or functor. TODO: make prewrite function to reset the chip to high threshold values
+        eol_function (function):            end of loop function called each time after sending a command. Argument is a function pointer (without braces) or functor.
+        digitial_injection (bool):          enables digital injection TODO: what is disabled/enabled
+        enable_shift_masks (list,tuple):    list of enabled pixel masks which will be shifted during scan, mask set to 1 for selected pixels else 0. None will select TODO: which will be selected here
+        disable_shift_masks (list,tuple):   list of disabled pixel makss which will be shifted during scna, mask set to 0 for selected pixels, else 0. None will disable no maks TODO: ?????
+        restore_shift_masks (bool):         writing the initial (restored) pixel config into FE after finishing the scan loop
+        mask (array-like):                  additional mask. must be convertible to an array of bools with the same shape as mask array, true indictes a masked pixel, masked pixels will be diabled during shifting of the enable shift masks, and enabled during shifting diable shift masks
+        '''
 
 
 if __name__ == "__main__":

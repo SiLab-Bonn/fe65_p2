@@ -16,17 +16,17 @@ import os
 
 local_configuration = {
     "mask_steps": 4,
-    "repeat_command": 100,
+    "repeat_command": 1,
 
     # DAC parameters
     "PrmpVbpDac": 36,
-    "vthin1Dac": 100,
+    "vthin1Dac": 110,
     "vthin2Dac": 0,
     "vffDac": 24,
     "PrmpVbnFolDac": 51,
     "vbnLccDac": 1,
     "compVbnDac": 25,
-    "preCompVbnDac": 50
+    "preCompVbnDac": 50,
 }
 
 
@@ -43,66 +43,27 @@ class AnalogScan(ScanBase):
         repeat : int
             Number of injections.
         '''
-
+        
         #columns = [True] + [False] * 15
-
-        #self.dut['INJ_LO'].set_voltage(0.8, unit='V')
-        #self.dut['INJ_HI'].set_voltage(1, unit='V')
 
         self.dut['INJ_LO'].set_voltage(0.1, unit='V')
         self.dut['INJ_HI'].set_voltage(1.2, unit='V')
+        
 
-        self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
-        self.dut['global_conf']['vthin1Dac'] = kwargs['vthin1Dac']
-        self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
-        self.dut['global_conf']['vffDac'] = kwargs['vffDac']
-        self.dut['global_conf']['PrmpVbnFolDac'] = kwargs['PrmpVbnFolDac']
-        self.dut['global_conf']['vbnLccDac'] = kwargs['vbnLccDac']
-        self.dut['global_conf']['compVbnDac'] = kwargs['compVbnDac']
-        self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
+        self.set_local_config()
+        self.dut.set_for_configuration()
 
-        self.dut.write_global()
+        mask_inj = np.full([64, 64], False, dtype=np.bool)
+        mask_en = np.full([64, 64], True, dtype=np.bool)
+        mask_tdac = np.full([64, 64], 16, dtype=np.uint8)
 
-        # write InjEnLd & PixConfLd to '1
-        self.dut['pixel_conf'].setall(True)
-        self.dut.write_pixel_col()
-        self.dut['global_conf']['SignLd'] = 1
-        self.dut['global_conf']['InjEnLd'] = 1
-        self.dut['global_conf']['TDacLd'] = 0b1111
-        self.dut['global_conf']['PixConfLd'] = 0b11
-        self.dut.write_global()
+        self.dut.write_en_mask(mask_en)
+        self.dut.write_tune_mask(mask_tdac)
 
-        # write SignLd & TDacLd to '0
-        self.dut['pixel_conf'].setall(False)
-        self.dut.write_pixel_col()
-        self.dut['global_conf']['SignLd'] = 1
-        self.dut['global_conf']['InjEnLd'] = 1
-        self.dut['global_conf']['TDacLd'] = 0b1000
-        self.dut['global_conf']['PixConfLd'] = 0b00
-        self.dut.write_global()
-
-        # test hit
-        self.dut['global_conf']['TestHit'] = 0
-        self.dut['global_conf']['SignLd'] = 0
-        self.dut['global_conf']['InjEnLd'] = 0
-        self.dut['global_conf']['TDacLd'] = 0
-        self.dut['global_conf']['PixConfLd'] = 0
-
-        self.dut['global_conf']['OneSr'] = 0  # all multi columns in parallel
         self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
         self.dut.write_global()
 
-        self.dut['control']['RESET'] = 0b01
-        self.dut['control']['DISABLE_LD'] = 0
-        self.dut['control'].write()
-
-        self.dut['control']['CLK_OUT_GATE'] = 1
-        self.dut['control']['CLK_BX_GATE'] = 1
-        self.dut['control'].write()
-        time.sleep(0.1)
-
-        self.dut['control']['RESET'] = 0b11
-        self.dut['control'].write()
+        self.dut.start_up()
 
         # enable inj pulse and trigger
         wait_for_read = (16 + columns.count(True) *
@@ -117,64 +78,36 @@ class AnalogScan(ScanBase):
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
 
-        lmask = [1] + ([0] * (mask_steps - 1))
-        lmask = lmask * ((64 * 64) / mask_steps + 1)
-        lmask = lmask[:64 * 64]
-        print lmask
-
-        bv_mask = bitarray.bitarray(lmask)
-        print "PIXLES", np.count_nonzero(bv_mask)
-        print len(bv_mask)
+        # for the set_en command
+        # If true: The pulse comes with a fixed delay with respect to the external trigger (EXT_START).
+        # If false: The pulse comes only at software start.
 
         with self.readout():
             pbar = ProgressBar(maxval=mask_steps).start()
             for i in range(mask_steps):
+                for qcol in range(16):
+                    self.dut.set_for_configuration()
 
-                #self.dut['global_conf']['vthin1Dac'] = 255
-                # self.dut.write_global()
-                self.dut['global_conf']['vthin1Dac'] = 255
-                self.dut['global_conf']['vthin2Dac'] = 0
-                self.dut['global_conf']['preCompVbnDac'] = 50
-                self.dut['global_conf']['PrmpVbpDac'] = 80
+                    mask_inj[:, :] = False
+                    mask_inj[qcol * 4:(qcol + 1) * 4 + 1, i::mask_steps] = True
+                    self.dut.write_inj_mask(mask_inj)
 
-                self.dut.write_global()
-                # set all InjEn to 0
-                self.dut['pixel_conf'].setall(False)
-                self.dut.write_pixel_col()
-                self.dut['global_conf']['InjEnLd'] = 1
-                self.dut['global_conf']['PixConfLd'] = 0b00
-                self.dut.write_global()
+                    self.set_local_config()
 
-                self.dut['pixel_conf'][:] = bv_mask
-                self.dut.write_pixel_col()
-                self.dut['global_conf']['PixConfLd'] = 0b11
-                self.dut['global_conf']['InjEnLd'] = 1
-                self.dut.write_global()
+                    self.dut['inj'].start()
 
-                bv_mask[1:] = bv_mask[0:-1]
-                bv_mask[0] = 0
+                    if os.environ.get('TRAVIS'):
+                        logging.debug('.')
 
-                self.dut['global_conf']['vthin1Dac'] = 20
-                self.dut.write_global()
+                    pbar.update(i)
 
-                self.dut['inj'].start()
+                    while not self.dut['inj'].is_done():
+                        time.sleep(0.01)
 
-                if os.environ.get('TRAVIS'):
-                    logging.debug('.')
+                    while not self.dut['trigger'].is_done():
+                        time.sleep(0.01)
 
-                pbar.update(i)
-
-                while not self.dut['inj'].is_done():
                     time.sleep(0.01)
-                    pass
-
-                while not self.dut['trigger'].is_done():
-                    time.sleep(0.01)
-                    pass
-
-                print "INJECT"
-
-                # self.fifo_readout.print_readout_status()
 
             # just some time for last read
             self.dut['trigger'].set_en(False)

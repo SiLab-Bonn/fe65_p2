@@ -31,7 +31,7 @@ class ScanBase(object):
         logging.info('Initializing %s', self.__class__.__name__)
 
         self.dut = fe65p2(dut_conf)
-        
+
         self.working_dir = os.path.join(os.getcwd(), "output_data")
         if not os.path.exists(self.working_dir):
             os.makedirs(self.working_dir)
@@ -39,14 +39,14 @@ class ScanBase(object):
         self.final_vth1 = -99
         self.run_name = time.strftime("%Y%m%d_%H%M%S_") + self.scan_id
         self.output_filename = os.path.join(self.working_dir, self.run_name)
-               
+
         self.fh = logging.FileHandler(self.output_filename + '.log')
         self.fh.setLevel(logging.DEBUG)
         self.logger = logging.getLogger()
         self.logger.addHandler(self.fh)
-        
+
         self.dut.init()
-        
+
     def cap_fac(self):
         return 7.9891
 
@@ -55,21 +55,22 @@ class ScanBase(object):
 
     def start(self, **kwargs):
 
-      
-
         self._first_read = False
         self.scan_param_id = 0
 
         filename = self.output_filename + '.h5'
-        filter_raw_data = tb.Filters(complib='blosc', complevel=5, fletcher32=False)
-        self.filter_tables = tb.Filters(complib='zlib', complevel=5, fletcher32=False)
+        filter_raw_data = tb.Filters(
+            complib='blosc', complevel=5, fletcher32=False)
+        self.filter_tables = tb.Filters(
+            complib='zlib', complevel=5, fletcher32=False)
         self.h5_file = tb.open_file(filename, mode='w', title=self.scan_id)
         self.raw_data_earray = self.h5_file.create_earray(self.h5_file.root, name='raw_data', atom=tb.UIntAtom(),
-                                                         shape=(0,), title='raw_data', filters=filter_raw_data)
+                                                          shape=(0,), title='raw_data', filters=filter_raw_data)
         self.meta_data_table = self.h5_file.create_table(self.h5_file.root, name='meta_data', description=MetaTable,
-                                                        title='meta_data', filters=self.filter_tables)
+                                                         title='meta_data', filters=self.filter_tables)
 
         self.meta_data_table.attrs.kwargs = yaml.dump(kwargs)
+        self._kwargs = kwargs
 
         self.dut['control']['RESET'] = 0b00
         self.dut['control'].write()
@@ -92,7 +93,8 @@ class ScanBase(object):
         self.dut['global_conf']['Latency'] = 400
         # chip['global_conf']['ColEn'][0] = 1
         self.dut['global_conf']['ColEn'].setall(True)
-        self.dut['global_conf']['ColSrEn'].setall(True)  # enable programming of all columns
+        self.dut['global_conf']['ColSrEn'].setall(
+            True)  # enable programming of all columns
         self.dut['global_conf']['ColSrOut'] = 15
 
         self.dut['global_conf']['OneSr'] = 0  # all multi columns in parallel
@@ -100,7 +102,7 @@ class ScanBase(object):
 
         self.dut['control']['RESET'] = 0b10
         self.dut['control'].write()
-        pw=self.dut.power_status()
+        pw = self.dut.power_status()
         logging.info('Power Status: %s', str(pw))
 
         self.scan(**kwargs)
@@ -108,32 +110,33 @@ class ScanBase(object):
         self.fifo_readout.print_readout_status()
 
         self.meta_data_table.attrs.power_status = yaml.dump(pw)
-        self.meta_data_table.attrs.dac_status = yaml.dump(self.dut.dac_status())
+        self.meta_data_table.attrs.dac_status = yaml.dump(
+            self.dut.dac_status())
         self.meta_data_table.attrs.vth1 = yaml.dump(self.final_vth1)
 
-        #temperature
+        # temperature
         #temp = self.dut['ntc'].get_temperature('C')
         #self.meta_data_table.attrs.temp = yaml.dump(str(temp))
 
         self.h5_file.close()
         logging.info('Data Output Filename: %s', self.output_filename + '.h5')
 
-        #temp and power log
+        # temp and power log
         if (self.scan_id != "status_scan" and self.scan_id != "temp_scan"):
-            logname = 'reg_'+str(self.scan_id)+'.dat'
-            vth1_set=self.final_vth1
+            logname = 'reg_' + str(self.scan_id) + '.dat'
+            vth1_set = self.final_vth1
 
             legend = "Time \t Dig[mA] \t Ana[mA] \t Aux[mA] \t Dig[V] \t vth1 \n"
-            if not os.path.exists("./"+logname):
+            if not os.path.exists("./" + logname):
                 with open(logname, "a") as t_file:
                     t_file.write(legend)
-            t_log = time.strftime("%d-%b-%H:%M:%S")+"\t"+str(pw['VDDD[mA]'])+"\t"+str(pw['VDDA[mA]'])+"\t"+str(pw['VAUX[mA]'])+"\t"+str(pw['VDDD[V]'])+"\t"+str(vth1_set)+"\n"
+            t_log = time.strftime("%d-%b-%H:%M:%S") + "\t" + str(pw['VDDD[mA]']) + "\t" + str(
+                pw['VDDA[mA]']) + "\t" + str(pw['VAUX[mA]']) + "\t" + str(pw['VDDD[V]']) + "\t" + str(vth1_set) + "\n"
             with open(logname, "a") as t_file:
                 t_file.write(t_log)
 
-
         self.logger.removeHandler(self.fh)
-        self.dut.power_down()
+        #self.dut.power_down()
 
     def analyze(self):
         raise NotImplementedError('ScanBase.analyze() not implemented')
@@ -170,10 +173,21 @@ class ScanBase(object):
         self.fifo_readout.start(reset_sram_fifo=reset_sram_fifo, fill_buffer=fill_buffer, clear_buffer=clear_buffer,
                                 callback=callback, errback=errback, no_data_timeout=no_data_timeout)
 
+    def set_local_config(self):
+        self.dut['global_conf']['PrmpVbpDac'] = self._kwargs['PrmpVbpDac']
+        self.dut['global_conf']['vthin1Dac'] = self._kwargs['vthin1Dac']
+        self.dut['global_conf']['vthin2Dac'] = self._kwargs['vthin2Dac']
+        self.dut['global_conf']['vffDac'] = self._kwargs['vffDac']
+        self.dut['global_conf']['PrmpVbnFolDac'] = self._kwargs['PrmpVbnFolDac']
+        self.dut['global_conf']['vbnLccDac'] = self._kwargs['vbnLccDac']
+        self.dut['global_conf']['compVbnDac'] = self._kwargs['compVbnDac']
+        self.dut['global_conf']['preCompVbnDac'] = self._kwargs['preCompVbnDac']
+        self.dut.write_global()
+
     def handle_data(self, data_tuple):
         '''Handling of the data.
         '''
-        get_bin = lambda x, n: format(x, 'b').zfill(n)
+        def get_bin(x, n): return format(x, 'b').zfill(n)
         # print data_tuple[0].shape[0] #, data_tuple
 
         total_words = self.raw_data_earray.nrows
