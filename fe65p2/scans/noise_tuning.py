@@ -25,18 +25,18 @@ from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "columns": [False] * 14 + [True] * 2 + [False] * 0,
-    "stop_pixel_count": 10,
+    "columns": [False] * 0 + [True] * 16 + [False] * 0,
+    "stop_pixel_count": 5,
     "repeats": 10000,
     # pars
     "PrmpVbpDac": 36,
     "vthin1Dac": 100,
     "vthin2Dac": 0,
-    "vffDac": 24,
+    "vffDac": 42,
     "PrmpVbnFolDac": 51,
-    "vbnLccDac": 1,
+    "vbnLccDac": 0,
     "compVbnDac": 25,
-    "preCompVbnDac": 110,
+    "preCompVbnDac": 50,
 
 }
 
@@ -147,7 +147,7 @@ class NoiseTuning(ScanBase):
         # exit()
 
         # this seems to be working OK problem is probably bad injection on GPAC
-        self.dut['trigger'].set_delay(100)
+        self.dut['trigger'].set_delay(395)
         self.dut['trigger'].set_width(1)  # try single
         self.dut['trigger'].set_repeat(repeats)
         self.dut['trigger'].set_en(False)
