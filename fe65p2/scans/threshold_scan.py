@@ -27,18 +27,27 @@ local_configuration = {
     "columns": [True] * 16,
     #   DAC parameters
     "PrmpVbpDac": 36,
-    "vthin1Dac": 80,
+    "vthin1Dac": 60,
     "vthin2Dac": 0,
-    "vffDac": 24,
-    "PrmpVbnFolDac": 51,
-    "vbnLccDac": 1,
+    "vffDac": 255,
+    "PrmpVbnFolDac": 150,
+    "vbnLccDac": 0,
     "compVbnDac": 25,
-    "preCompVbnDac": 110,
+    "preCompVbnDac": 50,
+
+    # "PrmpVbpDac": 36,
+    # "vthin1Dac": 70,
+    # "vthin2Dac": 0,
+    # "vffDac": 24,
+    # "PrmpVbnFolDac": 51,
+    # "vbnLccDac": 1,
+    # "compVbnDac": 25,
+    # "preCompVbnDac": 110,
 
     #   thrs scan
-    "mask_steps": 8,
+    "mask_steps": 4,
     "repeat_command": 1000,
-    "scan_range": [0.05, 1.05, 0.025],
+    "scan_range": [0., 0.55, 0.05],
     "mask_filename": '',
     "TDAC": 16
 }
@@ -58,18 +67,18 @@ class ThresholdScan(ScanBase):
         TDAC : int
             initial pixel threshold value
         '''
-        def load_vthin1Dac(mask):
-            if os.path.exists(mask):
-                in_file = tb.open_file(mask, 'r')
-                dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
-                vthrs1 = dac_status['vthin1Dac'] + 4
-                logging.info("Loaded vth1 from noise scan: %d", vthrs1)
-                return vthrs1
-            else:
-                return kwargs['vthin1Dac']
+        # def load_vthin1Dac(mask):
+        #     if os.path.exists(mask):
+        #         in_file = tb.open_file(mask, 'r')
+        #         dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
+        #         vthrs1 = dac_status['vthin1Dac'] + 4
+        #         logging.info("Loaded vth1 from noise scan: %d", vthrs1)
+        #         return vthrs1
+        #     else:
+        #         return kwargs['vthin1Dac']
 
-        vth1 = load_vthin1Dac(mask_filename)
-        print vth1
+        #vth1 = load_vthin1Dac(mask_filename)
+        vth1 = kwargs.get("vthin1Dac", 100)
 
         inj_factor = 1.0
 
@@ -80,6 +89,7 @@ class ThresholdScan(ScanBase):
             logging.info('Connected to ' + str(pulser['Pulser'].get_info()))
             pulser['Pulser'].set_usr_func("FEI4_PULSE")
             pulser['Pulser'].set_output_pol("NORM")
+            pulser_test = True
             # pulser['Pulser'].set_burst_mode("TRIG")
             # pulser['Pulser'].burst_cycles("1.0")
             # pulser['Pulser'].set_voltage(0.2, 1., unit='V')
@@ -89,6 +99,7 @@ class ThresholdScan(ScanBase):
         except:
             # INJ_LO = 0.2
             #inj_factor = 2.0
+            pulser_test = False
             logging.info(
                 'External injector not connected. Switch to internal one')
 
@@ -168,7 +179,7 @@ class ThresholdScan(ScanBase):
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
-        self.dut['trigger'].set_delay(400 - 4)
+        self.dut['trigger'].set_delay(395)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
@@ -184,8 +195,10 @@ class ThresholdScan(ScanBase):
 
         INJ_LO = scan_range[0]
         for idx, k in enumerate(scan_range):
-            pulser['Pulser'].set_voltage(0., INJ_LO + k, unit='V')
-            # self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
+            if pulser_test:
+                pulser['Pulser'].set_voltage(0., INJ_LO + k, unit='V')
+            else:
+                self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
 
             bv_mask = bitarray.bitarray(lmask)
 
@@ -196,14 +209,7 @@ class ThresholdScan(ScanBase):
                              k, idx + 1, len(scan_range))
                 pbar = ProgressBar(maxval=mask_steps).start()
                 for i in range(mask_steps):
-
-                    self.dut['global_conf']['vthin1Dac'] = 255
-                    self.dut['global_conf']['vthin2Dac'] = 0
-                    self.dut['global_conf']['preCompVbnDac'] = 50
-                    self.dut['global_conf']['PrmpVbpDac'] = 80
-
-                    self.dut.write_global()
-                    time.sleep(0.1)
+                    self.dut.set_for_configuration()
 
                     self.dut['pixel_conf'][:] = bv_mask
                     self.dut.write_pixel_col()
@@ -224,14 +230,15 @@ class ThresholdScan(ScanBase):
                     self.dut['inj'].start()
 
                     pbar.update(i)
+                    trig_wait_num = 0
 
                     while not self.dut['inj'].is_done():
                         time.sleep(0.05)
-                        pass
 
                     while not self.dut['trigger'].is_done():
                         time.sleep(0.05)
-                        pass
+                        trig_wait_num += 1
+                    print "number of trigger waits: ", trig_wait_num
 
         scan_results = self.h5_file.create_group(
             "/", 'scan_results', 'Scan Masks')
