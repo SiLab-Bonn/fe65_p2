@@ -76,3 +76,4 @@ output_data
 *.csv
 *.project
 *.pydevproject
+*.dat
