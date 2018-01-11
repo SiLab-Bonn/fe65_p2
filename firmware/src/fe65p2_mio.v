@@ -107,7 +107,9 @@ module fe65p2_mio (
     output wire DUT_PIX_D_CONF,  
     
     output wire DUT_CLK_DATA, 
-    input wire DUT_OUT_DATA
+    input wire DUT_OUT_DATA,
+	 
+	 output wire HIT_OR_TDC_OUT
     
 );   
 
@@ -179,7 +181,6 @@ module fe65p2_mio (
         .U2_LOCKED(CLK_LOCKED)
     );
 
-    
     wire BUS_RST;
     reset_gen ireset_gen(.CLK(BUS_CLK), .RST(BUS_RST));
     
@@ -324,7 +325,7 @@ module fe65p2_mio (
         .BUS_WR(BUS_WR),
     
         .PULSE_CLK(~CLK40),
-        .EXT_START(TESTHIT | DUT_INJ),
+        .EXT_START(TESTHIT | DUT_INJ | HIT_OR_TDC_OUT),
         .PULSE(DUT_TRIGGER)
     );
     
@@ -400,7 +401,7 @@ module fe65p2_mio (
         .CLK160(CLK160),
         .DV_CLK(CLK40),
         .TDC_IN(DUT_HIT_OR),
-        .TDC_OUT(LEMO_TX[0]),
+        .TDC_OUT(HIT_OR_TDC_OUT),
         .TRIG_IN(LEMO_RX[0]),
         .TRIG_OUT(),
 
@@ -421,9 +422,10 @@ module fe65p2_mio (
         .TIMESTAMP(16'b0)
     );
 
-
+    assign LEMO_TX[0] = HIT_OR_TDC_OUT;
 	 assign LEMO_TX[1] = DUT_INJ;
-	 assign LEMO_TX[2] = 1'b0;	
+	 assign LEMO_TX[2] = 0;
+	 
 //	 assign TDC_FIFO_EMPTY = 1;
 
     wire USB_READ;
