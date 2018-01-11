@@ -72,3 +72,7 @@ tests/*.dat
 
 output_data
 *.lprof
+
+*.csv
+*.project
+*.pydevproject
