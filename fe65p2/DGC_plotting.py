@@ -228,6 +228,7 @@ def plot_occupancy(h5_file_name):
         fig = Figure(figsize=(8, 8))
         _ = FigureCanvas(fig)
         fig.clear()
+        fig.patch.set_facecolor('white')
         # ax = fig.add_subplot(111)
         ax_main = fig.add_axes(rect_main)
         ax_X = fig.add_axes(rect_histx)
@@ -272,6 +273,7 @@ def thresh_pix_heatmap(h5_file_name):
         # ax1_main.xaxis.tick_bottom()
         h1 = ax1_main.imshow(Thresh, origin='lower', interpolation='none')
         # TODO: show color map
+        cbar = fig1.colorbar(h1)
         fig2 = Figure()
         _ = FigureCanvas(fig2)
         fig2.clear()
@@ -283,6 +285,8 @@ def thresh_pix_heatmap(h5_file_name):
         # ax2_main.xaxis.set_label_position('bottom')
         # ax2_main.xaxis.set_ticks_position('bottom')
         h1 = ax2_main.imshow(Noise, origin='lower left', interpolation='none')
+        cbar = fig2.colorbar(h1)
+
         print 'passing threshold and noise heatmaps'
         return fig1, fig2
 
