@@ -50,7 +50,6 @@ def analyze_threshold_scan(h5_file_name):
             h_count = h_count[:repeat_command + 10]
             pix_scan_hist[param] = np.pad(
                 h_count, (0, (repeat_command + 10) - h_count.shape[0]), 'constant')
-            
 
         log_hist = np.log10(pix_scan_hist)
         log_hist[~np.isfinite(log_hist)] = 0
@@ -127,14 +126,15 @@ def analyze_threshold_scan(h5_file_name):
             "/", 'Scurves_Measurments', 'Scurves_Measurments')
 
         scurve_hist_unform = in_file_h5.create_carray(Scurves_Measurments, name='Scurve', title='Scurve Measurements',
-                                               obj=s_hist)
-        #scurve_hist_unform[:]=
+                                                      obj=s_hist)
+        # scurve_hist_unform[:]=
         scurve_hist = in_file_h5.create_carray(Scurves_Measurments, name='Scurve_formatted', title='Scurve Histogram',
                                                obj=s_hist.reshape((64, 64, scan_range_inx.shape[0])))
-        #need one that is num of occurances vs scan param ... go from the orginal s_hist -> pix_scan_hist
-        scurve_thresh_hm = in_file_h5.create_carray(Scurves_Measurments, name = 'threshold_hm', title='numver of pix in bins/scan param', obj=pix_scan_hist)
+        # need one that is num of occurances vs scan param ... go from the orginal s_hist -> pix_scan_hist
+        scurve_thresh_hm = in_file_h5.create_carray(
+            Scurves_Measurments, name='threshold_hm', title='numver of pix in bins/scan param', obj=pix_scan_hist)
 
-        #scurve_hist[:]=scurve_formatted
+        # scurve_hist[:]=scurve_formatted
 
         # atom=tb.Atom.from_dtype(
         #    Scurves_results.dtype),
@@ -202,8 +202,8 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command):
             popt = [0, 0, 0]
             logging.info('Fit did not work scurve: %s %s %s', str(popt[0]),
                          str(popt[1]), str(popt[2]))
-    # TODO: fix chi2!
-    chi2 = np.sum((np.diff(scurve_data - scurve(PlsrDAC, *popt))**2)*repeat_command)
+    chi2 = np.sum(
+        (np.diff(scurve_data - scurve(PlsrDAC, *popt))**2) * repeat_command)
 
     if popt[1] < 0:  # threshold < 0 rarely happens if fit does not work
         popt = [0, 0, 0]
