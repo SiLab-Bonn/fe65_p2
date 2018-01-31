@@ -136,7 +136,7 @@ class ScanBase(object):
                 t_file.write(t_log)
 
         self.logger.removeHandler(self.fh)
-        #self.dut.power_down()
+        # self.dut.power_down()
 
     def analyze(self):
         raise NotImplementedError('ScanBase.analyze() not implemented')
@@ -173,9 +173,13 @@ class ScanBase(object):
         self.fifo_readout.start(reset_sram_fifo=reset_sram_fifo, fill_buffer=fill_buffer, clear_buffer=clear_buffer,
                                 callback=callback, errback=errback, no_data_timeout=no_data_timeout)
 
-    def set_local_config(self):
+    def set_local_config(self, vth1=None, **kwargs):
+
         self.dut['global_conf']['PrmpVbpDac'] = self._kwargs['PrmpVbpDac']
-        self.dut['global_conf']['vthin1Dac'] = self._kwargs['vthin1Dac']
+        if vth1:
+            self.dut['global_conf']['vthin1Dac'] = int(vth1)
+        else:
+            self.dut['global_conf']['vthin1Dac'] = self._kwargs['vthin1Dac']
         self.dut['global_conf']['vthin2Dac'] = self._kwargs['vthin2Dac']
         self.dut['global_conf']['vffDac'] = self._kwargs['vffDac']
         self.dut['global_conf']['PrmpVbnFolDac'] = self._kwargs['PrmpVbnFolDac']

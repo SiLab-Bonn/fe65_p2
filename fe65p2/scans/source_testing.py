@@ -32,15 +32,23 @@ local_configuration = {
     "columns": [True] * 16 + [False] * 0 + [True] * 0 + [False] * 0,
 
     # DAC parameters
-    "PrmpVbpDac": 36,
-    "vthin1Dac": 60,
+    #     "PrmpVbpDac": 100,
+    #     "vthin1Dac": 20,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 110,
+    #     "PrmpVbnFolDac": 51,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 25,
+    #     "preCompVbnDac": 150,
+    "PrmpVbpDac": 80,
+    "vthin1Dac": 100,
     "vthin2Dac": 0,
-    "vffDac": 255,
+    "vffDac": 42,
     "PrmpVbnFolDac": 51,
-    "vbnLccDac": 0,
+    "vbnLccDac": 1,
     "compVbnDac": 25,
-    "preCompVbnDac": 50,
-    "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20171222_140517_noise_tuning.h5',
+    "preCompVbnDac": 100,
+    "mask_filename": '',  # /home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20171222_140517_noise_tuning.h5',
     "thresh_mask": ''
 }
 
@@ -48,7 +56,7 @@ local_configuration = {
 class SourceTesting(ScanBase):
     scan_id = "source_testing"
 
-    def scan(self, mask_steps=4, max_data_count=100, columns=[True] * 16, mask_filename=None, **kwargs):
+    def scan(self, max_data_count=100, columns=[True] * 16, mask_filename=None, **kwargs):
         '''Scan loop
 
         Parameters
@@ -62,12 +70,11 @@ class SourceTesting(ScanBase):
 
         #columns = [True] + [False] * 15
 
-        self.set_local_config()
         self.dut.set_for_configuration()
 
-        mask_trig = np.full([64, 64], False, dtype=np.bool)
         mask_en = np.full([64, 64], True, dtype=np.bool)
         mask_tdac = np.full([64, 64], 16, dtype=np.uint8)
+        mask_hitor = np.full([64, 64], True, dtype=np.bool)
 
         if mask_filename:
             logging.info('***** Using pixel mask from file: %s', mask_filename)
@@ -75,12 +82,6 @@ class SourceTesting(ScanBase):
             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
                 mask_en = in_file_h5.root.scan_results.en_mask[:]
-
-        self.dut.write_en_mask(mask_en)
-        self.dut.write_tune_mask(mask_tdac)
-
-        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
-        self.dut.write_global()
 
         self.dut.start_up()
 
@@ -95,42 +96,42 @@ class SourceTesting(ScanBase):
 
         self.dut.write_en_mask(mask_en)
         self.dut.write_tune_mask(mask_tdac)
+        self.dut.write_hitor_mask(mask_hitor)
 
-        lmask = [1] + ([0] * (mask_steps - 1))
-        lmask = lmask * ((64 * 64) / mask_steps + 1)
-        lmask = lmask[:64 * 64]
-
-        bv_mask = bitarray.bitarray(lmask)
         columns = kwargs.get("columns", columns)
         self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
 
+        # trigger delay needs to be tuned for here. the hit_or takes more time to go through everything
+        # best delay here was ~395 (for chip1) make sure to tune before data taking.
+        # once tuned reduce the number of triggers sent (width)
+
+        self.dut['trigger'].set_delay(395)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
-        self.dut['trigger'].set_en(True)
-
-        count_old = 0
-        total_old = 0
-        self.dut.set_for_configuration()
-        self.dut.write_global()
-        self.set_local_config()
 
         with self.readout():
+
+            count_old = 0
+            total_old = 0
+            self.dut.set_for_configuration()
+            self.set_local_config()
+
+            self.dut['trigger'].set_en(True)
+
+            for loop in range(100):
+                sleep_time = 6
+                time.sleep(sleep_time)
+                count_loop = self.fifo_readout.get_record_count() - count_old
+                print "words received in loop ", loop, ": ", count_loop, " \tcount rate per second: ", count_loop / sleep_time
+                count_old = self.fifo_readout.get_record_count()
+
+            self.dut['trigger'].set_en(False)
+            time.sleep(1)
+
             # for vth1 in xrange(30, 100, 5):
             #     self.dut['global_conf']['vthin1Dac'] = vth1
             # for delay in range(0, 500, 20):
             self.dut.set_for_configuration()
-            self.dut.write_global()
-            delay = 395
-            self.dut['trigger'].set_delay(delay)
-            self.set_local_config()
-            self.dut['trigger'].start()
-
-            time.sleep(60)
-
-            count_new = self.fifo_readout.get_record_count()
-            count_diff = count_new - count_old
-            count_old = count_new
-            print ("delay %s \twords: %s" % (delay, count_diff))
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'
