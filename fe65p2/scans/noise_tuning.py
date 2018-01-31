@@ -1,16 +1,16 @@
-''' Threshold tuning based on electronic noise.
+''' TDAC tuning based on electronic noise.
     Tunes to the lowest possible threshold value. 
+    No injection, only noise scan. 
+    stop at pixel count, vthin1 at 0, or tdac average at 7
 '''
 
 from fe65p2.scan_base import ScanBase
-import fe65p2.plotting as plotting
 import fe65p2.DGC_plotting as DGC_plotting
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.backends.backend_pdf import PdfFile
 import matplotlib.pyplot as plt
 import time
-
 import logging
+import yaml
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
@@ -18,23 +18,21 @@ logging.basicConfig(level=logging.INFO,
 import numpy as np
 import bitarray
 import tables as tb
-from bokeh.charts import output_file, hplot, save, show
-from bokeh.models.layouts import Column, Row
 from basil.dut import Dut
-from progressbar import ProgressBar
-import os
+
 
 local_configuration = {
     "columns": [False] * 0 + [True] * 16 + [False] * 0,
-    "stop_pixel_count": 5,
-    "repeats": 10000,
-    # pars
+    "stop_pixel_percent": 1.5,
+    "pixel_disable_switch": 10,
+    "repeats": 1000,
+    # chip 3
     "PrmpVbpDac": 36,
-    "vthin1Dac": 100,
+    "vthin1Dac": 120,
     "vthin2Dac": 0,
     "vffDac": 42,
     "PrmpVbnFolDac": 51,
-    "vbnLccDac": 0,
+    "vbnLccDac": 1,
     "compVbnDac": 25,
     "preCompVbnDac": 50,
 
@@ -48,7 +46,7 @@ class NoiseTuning(ScanBase):
         super(NoiseTuning, self).__init__()
         self.vth1Dac = 0
 
-    def scan(self, stop_pixel_count=1000, repeats=100000, **kwargs):
+    def scan(self, stop_pixel_percent=2, pixel_disable_switch=4, repeats=100000, columns=None, **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -71,13 +69,12 @@ class NoiseTuning(ScanBase):
         self.dut['global_conf']['compVbnDac'] = kwargs['compVbnDac']
         self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
 
-        self.dut['global_conf']['vthin1Dac'] = 255
-        self.dut['global_conf']['vthin2Dac'] = 0
-        self.dut['global_conf']['preCompVbnDac'] = 100
-        self.dut['global_conf']['PrmpVbpDac'] = 80
+        self.dut.set_for_configuration()
 
-        columns = kwargs['columns']
-
+        columns = kwargs.get('columns', columns)
+        stop_pixel_percent = kwargs.get('stop_pixel_percent', stop_pixel_percent)
+        stop_pixel_count = (float(stop_pixel_percent) / 100) * float(sum(columns)) * 4 * 64
+        pixel_disable_switch = kwargs.get('pixel_disable_switch', pixel_disable_switch)
         self.dut.write_global()
         self.dut['control']['RESET'] = 0b01
         self.dut['control']['DISABLE_LD'] = 0
@@ -134,6 +131,9 @@ class NoiseTuning(ScanBase):
 
         self.dut.write_en_mask(mask_en)
 
+        mask_hitor = np.full([64, 64], False, dtype=np.bool)
+        self.dut.write_hitor_mask(mask_hitor)
+
         mask_tdac[:, :] = 0
         self.dut.write_tune_mask(mask_tdac)
 
@@ -147,14 +147,13 @@ class NoiseTuning(ScanBase):
         # exit()
 
         # this seems to be working OK problem is probably bad injection on GPAC
-        self.dut['trigger'].set_delay(395)
-        self.dut['trigger'].set_width(1)  # try single
+        self.dut['trigger'].set_delay(3000)
+        self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(repeats)
         self.dut['trigger'].set_en(False)
 
         np.set_printoptions(linewidth=180)
 
-        idx = 0
         finished = False
 
         vthin1DacInc = 1
@@ -162,35 +161,23 @@ class NoiseTuning(ScanBase):
         iteration = 0
 
         self.vth1Dac = kwargs['vthin1Dac']
+        self.dut.set_for_configuration()
 
         while not finished:
             with self.readout(scan_param_id=self.vth1Dac, fill_buffer=True, clear_buffer=True):
-                self.dut['global_conf']['vthin1Dac'] = self.vth1Dac
-                self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
-                self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
-                self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
-                self.dut.write_global()
-                time.sleep(0.1)
 
-                logging.info('Scan iteration: %d (vthin1Dac = %d)',
-                             iteration,  self.vth1Dac)
-                pbar = ProgressBar(maxval=10).start()
+                self.set_local_config(vth1=self.vth1Dac)
 
-                for i in range(10):
+                logging.info('Scan iteration: %d (vthin1Dac = %d)', iteration,  self.vth1Dac)
 
-                    self.dut['trigger'].start()
+                self.dut['trigger'].start()
 
-                    pbar.update(i)
+                # time.sleep(1.)
 
-                    while not self.dut['trigger'].is_done():
-                        pass
+                while not self.dut['trigger'].is_done():
+                    time.sleep(0.01)
 
-            self.dut['global_conf']['vthin1Dac'] = 255
-            self.dut['global_conf']['vthin2Dac'] = 0
-            self.dut['global_conf']['preCompVbnDac'] = 50
-            self.dut['global_conf']['PrmpVbpDac'] = 80
-
-            self.dut.write_global()
+            # self.fifo_readout.stop(timeout=1.)
 
             dqdata = self.fifo_readout.data
             data = np.concatenate([item[0] for item in dqdata])
@@ -204,11 +191,8 @@ class NoiseTuning(ScanBase):
             # print mask_tdac[:8, :]
             # print mask_en[:8, :]
 
-            logging.info(
-                'mean_tdac=' +
-                str(np.mean(mask_tdac[mask_en == True])) +
-                ' disabled=' + str(mask_disable_count)
-                + ' hist_tdac=' + str(np.bincount(mask_tdac[mask_en == True])))
+            logging.info('mean_tdac=' + str(np.mean(mask_tdac[mask_en == True])) + ' disabled=' +
+                         str(mask_disable_count) + ' hist_tdac=' + str(np.bincount(mask_tdac[mask_en == True])))
 
             nz = np.nonzero(value)
 
@@ -225,8 +209,12 @@ class NoiseTuning(ScanBase):
                     mask_en[col, row] = False
                     mask_disable_count += 1
 
-                logging.debug('col=%d row=%d val=%d mask=%d', i /
-                              64, i % 64, value[i], mask_tdac[col, row])
+                if mask_disable_count == pixel_disable_switch:
+                    mask_en_out = mask_en
+                    logging.info('saved enable mask as mask_en_out')
+                    print 'saved mask_en_out'
+
+                logging.debug('col=%d row=%d val=%d mask=%d', i / 64, i % 64, value[i], mask_tdac[col, row])
 
             # stop criteria:
             # np.mean(mask_tdac[mask_en == True]) >=7
@@ -238,7 +226,7 @@ class NoiseTuning(ScanBase):
                 if np.mean(mask_tdac[mask_en == True]) >= 15:
                     logging.info('exit from average tdac >=15')
                 if mask_disable_count >= stop_pixel_count:
-                    logging.info('exit from hitting max diable pixel count')
+                    logging.info('exit from hitting max diable pixel percent, disabled: %s' % str(mask_disable_count))
 
             # TODO: bin 16 doesnt get anything... all in bin 15
 
@@ -256,26 +244,29 @@ class NoiseTuning(ScanBase):
         self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
         self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
 
-        scan_results = self.h5_file.create_group(
-            "/", 'scan_results', 'Scan Results')
+        scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Results')
         self.h5_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac)
-        self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en)
+        self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en_out)
         logging.info('Final vthin1Dac value: %s', str(self.vth1Dac))
         self.final_vth1 = self.vth1Dac
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'
-        pdfName = self.output_filename + '.pdf'
+        pdfName = self.output_filename + '.pdf'  # '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/noise_tuning_testing.pdf'
         pp = PdfPages(pdfName)
-        print pp
 
         with tb.open_file(h5_filename, 'r+') as in_file_h5:
             raw_data = in_file_h5.root.raw_data[:]
             meta_data = in_file_h5.root.meta_data[:]
 
             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
-            in_file_h5.create_table(
-                in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+            in_file_h5.create_table(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+
+            occ = np.histogram2d(x=hit_data['col'], y=hit_data['row'],
+                                 bins=(64, 64), range=((0, 64), (0, 64)))[0]
+
+            in_file_h5.create_carray(in_file_h5.root, name='HistOcc', title='Occupancy Histogram',
+                                     obj=occ)
 
         status_plot = DGC_plotting.plot_status(h5_filename)
         pp.savefig(status_plot)
@@ -310,6 +301,8 @@ class NoiseTuning(ScanBase):
         #output_file(self.output_filename + '.html', title=self.run_name)
         #save(Column(Row(occ_plot, tot_plot), t_dac, status_plot))
         # show(t_dac)
+    def output_filename(self):
+        return self.output_filename()
 
 
 if __name__ == "__main__":
