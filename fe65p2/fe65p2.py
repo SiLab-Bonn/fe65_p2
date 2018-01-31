@@ -217,9 +217,18 @@ class fe65p2(Dut):
             self['control']['LD'] = 0
             self['control'].write()
 
+    def write_hitor_mask(self, mask=np.full([64, 64], False, dtype=np.bool)):
+        # if false -> 0b01
+        # if true -> 0b11
+
+        self.write_pixel(mask)
+        self['global_conf']['PixConfLd'] = 0b01
+        self.write_global()
+        self['global_conf']['PixConfLd'] = 0b00
+
     def write_en_mask(self, mask):
         self.write_pixel(mask)
-        self['global_conf']['PixConfLd'] = 0b11
+        self['global_conf']['PixConfLd'] = 0b10
         self.write_global()
         self['global_conf']['PixConfLd'] = 0b00
 
