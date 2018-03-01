@@ -137,13 +137,15 @@ class Vth1Scan(ScanBase):
         scan_range = kwargs.get("scan_range", scan_range)
         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
         stop_after_zeros = 0
+        self.set_local_config()
+#         logging.info('power status after local config: ', str(self.dut.power_status()))
         for idx, vth1_loop in enumerate(scan_range):
             with self.readout(scan_param_id=idx):
                 logging.info('Scan Parameter: %f (%d of %d)', vth1_loop, idx + 1, len(scan_range))
 
                 # the following if loops are only needed if running on more than 2 quad columns
-                if vth1_loop <= 60:
-                    self.dut['inj'].set_delay(wait_for_read * 50)
+                if vth1_loop <= 62:
+                    self.dut['inj'].set_delay(wait_for_read * 100)
                 if vth1_loop > 60 and vth1_loop < 100:
                     self.dut['inj'].set_delay(wait_for_read * 10)
                 if vth1_loop >= 100:
@@ -166,22 +168,21 @@ class Vth1Scan(ScanBase):
                         time.sleep(0.05)
 
                     while not self.dut['trigger'].is_done():
+                        #                         print 'wait'
                         time.sleep(0.05)
                     time.sleep(.5)
 
                     print "finished mask_step: ", i, " words recieved: ", self.fifo_readout.get_record_count()
-                if self.fifo_readout.get_record_count() == 6400:
-                    stop_after_zeros += 1
-                if stop_after_zeros == 3:
-                    break
+                if (self.fifo_readout.get_record_count() / mask_steps) == 1600:
+                    self.dut['inj'].set_delay(int(wait_for_read * 0.001))
 
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Masks')
         self.h5_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac)
         self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en)
 
     def analyze(self):
-        #         pp = PdfPages('/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/vth1_scan_testing.pdf')
-        pp = PdfPages(self.output_filename + '.pdf')
+        pp = PdfPages('/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/vth1_scan_testing.pdf')
+#         pp = PdfPages(self.output_filename + '.pdf')
         print pp
         h5_filename = self.output_filename + '.h5'
         with tb.open_file(h5_filename, 'r+') as in_file_h5:
@@ -207,42 +208,42 @@ class Vth1Scan(ScanBase):
             logging.info('Final vthin1Dac value: %s', str(mu_th))
 
         occ_plot = DGC_plotting.plot_occupancy(h5_filename)
-        pp.savefig(occ_plot)
+        pp.savefig(occ_plot, layout='tight')
         plt.clf()
         tot_plot = DGC_plotting.plot_tot_dist(h5_filename)
-        pp.savefig(tot_plot)
+        pp.savefig(tot_plot, layout='tight')
         plt.clf()
         lv1id_plot = DGC_plotting.plot_lv1id_dist(h5_filename)
-        pp.savefig(lv1id_plot)
+        pp.savefig(lv1id_plot, layout='tight')
         plt.clf()
         singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, chi2plot = DGC_plotting.scan_pix_hist(h5_filename)
-        pp.savefig(singlePixPolt)
+        pp.savefig(singlePixPolt, layout='tight')
         plt.clf()
-        pp.savefig(thresHM)
+        pp.savefig(thresHM, layout='tight')
         plt.clf()
-        pp.savefig(thresVsPix)
+        pp.savefig(thresVsPix, layout='tight')
         plt.clf()
-        pp.savefig(thresDist)
+        pp.savefig(thresDist, layout='tight')
         plt.clf()
-        pp.savefig(noiseHM)
+        pp.savefig(noiseHM, layout='tight')
         plt.clf()
-        pp.savefig(noiseDist)
+        pp.savefig(noiseDist, layout='tight')
         plt.clf()
-        pp.savefig(chi2plot)
+        pp.savefig(chi2plot, layout='tight')
         plt.clf()
 
         pp.close()
-
-        status_plot1 = plotting.plot_status(h5_filename)
-        occ_plot1, _ = plotting.plot_occupancy(h5_filename)
-        tot_plot1, _ = plotting.plot_tot_dist(h5_filename)
-        lv1id_plot1, _ = plotting.plot_lv1id_dist(h5_filename)
-        scan_pix_hist1, _ = plotting.scan_pix_hist(h5_filename)
-        t_dac1 = plotting.t_dac_plot(h5_filename)
-
-        output_file(self.output_filename + '.html', title=self.run_name)
-
-        save(Column(Row(occ_plot1, tot_plot1, lv1id_plot1), scan_pix_hist1, t_dac1, status_plot1))
+#
+#         status_plot1 = plotting.plot_status(h5_filename)
+#         occ_plot1, _ = plotting.plot_occupancy(h5_filename)
+#         tot_plot1, _ = plotting.plot_tot_dist(h5_filename)
+#         lv1id_plot1, _ = plotting.plot_lv1id_dist(h5_filename)
+#         scan_pix_hist1, _ = plotting.scan_pix_hist(h5_filename)
+#         t_dac1 = plotting.t_dac_plot(h5_filename)
+#
+#         output_file(self.output_filename + '.html', title=self.run_name)
+#
+#         save(Column(Row(occ_plot1, tot_plot1, lv1id_plot1), scan_pix_hist1, t_dac1, status_plot1))
 
         return mu_th  # mu_th is the mean global threshold for the tested columns
 

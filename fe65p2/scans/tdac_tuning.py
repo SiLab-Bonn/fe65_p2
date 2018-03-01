@@ -41,13 +41,13 @@ local_configuration = {
     #     "preCompVbnDac": 50,
 
     # chip 3
-    "PrmpVbpDac": 36,
-    "vthin1Dac": 60,
+    "PrmpVbpDac": 150,
+    "vthin1Dac": 130,
     "vthin2Dac": 0,
-    "vffDac": 42,
+    "vffDac": 75,
     "PrmpVbnFolDac": 51,
     "vbnLccDac": 1,
-    "compVbnDac": 25,
+    "compVbnDac": 60,
     "preCompVbnDac": 50,
 
     # chip 4
@@ -165,7 +165,7 @@ class TDACScan(ScanBase):
 
                     while not self.dut['trigger'].is_done():
                         time.sleep(0.05)
-                    time.sleep(.5)
+                    time.sleep(0.5)
 
                     print "finished mask_step: ", i, " words recieved: ", self.fifo_readout.get_record_count()
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Masks')
@@ -173,8 +173,8 @@ class TDACScan(ScanBase):
         self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en)
 
     def analyze(self):
-        pp = PdfPages(self.output_filename + '.pdf')
-#         pp = PdfPages('/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdac_tuning_testing.pdf')
+        #         pp = PdfPages(self.output_filename + '.pdf')
+        pp = PdfPages('/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdac_tuning_testing.pdf')
         print pp
         h5_filename = self.output_filename + '.h5'
         with tb.open_file(h5_filename, 'r+') as in_file_h5:
@@ -193,31 +193,31 @@ class TDACScan(ScanBase):
         analysis.analyze_tdac_scan(h5_filename)
 
         occ_plot = DGC_plotting.plot_occupancy(h5_filename)
-        pp.savefig(occ_plot)
+        pp.savefig(occ_plot, layout='tight')
         plt.clf()
         tot_plot = DGC_plotting.plot_tot_dist(h5_filename)
-        pp.savefig(tot_plot)
+        pp.savefig(tot_plot, layout='tight')
         plt.clf()
         lv1id_plot = DGC_plotting.plot_lv1id_dist(h5_filename)
-        pp.savefig(lv1id_plot)
+        pp.savefig(lv1id_plot, layout='tight')
         plt.clf()
         singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, chi2plot = DGC_plotting.scan_pix_hist(h5_filename)
-        pp.savefig(singlePixPolt)
+        pp.savefig(singlePixPolt, layout='tight')
         plt.clf()
-        pp.savefig(thresHM)
+        pp.savefig(thresHM, layout='tight')
         plt.clf()
-        pp.savefig(thresVsPix)
+        pp.savefig(thresVsPix, layout='tight')
         plt.clf()
-        pp.savefig(thresDist)
+        pp.savefig(thresDist, layout='tight')
         plt.clf()
-        pp.savefig(noiseHM)
+        pp.savefig(noiseHM, layout='tight')
         plt.clf()
-        pp.savefig(noiseDist)
+        pp.savefig(noiseDist, layout='tight')
         plt.clf()
-        pp.savefig(chi2plot)
+        pp.savefig(chi2plot, layout='tight')
         plt.clf()
         t_dac_plot = DGC_plotting.tdac_plot_for_tdac_scan(h5_filename)
-        pp.savefig(t_dac_plot)
+        pp.savefig(t_dac_plot, layout='tight')
 
         pp.close()
 
