@@ -15,7 +15,7 @@ class MetaTable(tb.IsDescription):
     data_length = tb.UInt32Col(pos=2)
     timestamp_start = tb.Float64Col(pos=3)
     timestamp_stop = tb.Float64Col(pos=4)
-    scan_param_id = tb.UInt16Col(pos=5)
+    scan_param_id = tb.UInt32Col(pos=5)
     error = tb.UInt32Col(pos=6)
     trigger = tb.Float64Col(pos=7)
 
