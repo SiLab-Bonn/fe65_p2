@@ -12,6 +12,7 @@ import numpy as np
 import tables as tb
 import logging
 import time
+import yaml
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
@@ -19,14 +20,23 @@ logging.basicConfig(level=logging.INFO,
 local_configuration = {
     #   DAC parameters
     # chip 3
-    "PrmpVbpDac": 36,
-    "vthin1Dac": 100,
+    #     "PrmpVbpDac": 160,
+    #     "vthin1Dac": 60,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 80,
+    #     "PrmpVbnFolDac": 87,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 50,
+    #     "preCompVbnDac": 86,
+    # chip4
+    "PrmpVbpDac": 125,
+    "vthin1Dac": 185,
     "vthin2Dac": 0,
-    "vffDac": 42,
-    "PrmpVbnFolDac": 51,
+    "vffDac": 73,
+    "PrmpVbnFolDac": 61,
     "vbnLccDac": 1,
-    "compVbnDac": 25,
-    "preCompVbnDac": 50,
+    "compVbnDac": 45,
+    "preCompVbnDac": 180,
 
 }
 
@@ -38,9 +48,9 @@ def noise_sc(qcols):
 
     custom_conf = {
         "columns": qcols,
-        "stop_pixel_percent": 2,
+        "stop_pixel_percent": 3,
         "pixel_disable_switch": 6,
-        "repeats": 1000,
+        "repeats": 10000,
     }
 
     scan_conf = dict(local_configuration, **custom_conf)
@@ -56,11 +66,15 @@ def noise_sc(qcols):
 def combine_prev_scans(file0, file1, file2, file3, file4, file5, file6, file7):
     # loop over the files like "file"+str(i)
     file_list = [file0, file1, file2, file3, file4, file5, file6, file7]
+    vth1_list = []
     for j, filename in enumerate(file_list):
 
         with tb.open_file(filename, 'r+') as in_file:
             mask_en_hold = in_file.root.scan_results.en_mask[:]
             mask_tdac_hold = in_file.root.scan_results.tdac_mask[:]
+            dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
+            vth1 = dac_status['vthin1Dac']
+            vth1_list.append(vth1)
         if filename == file0:
             mask_tdac = np.delete(mask_tdac_hold, np.s_[8:], axis=0)
             mask_en = np.delete(mask_en_hold, np.s_[8:], axis=0)
@@ -73,8 +87,8 @@ def combine_prev_scans(file0, file1, file2, file3, file4, file5, file6, file7):
 
             mask_tdac = np.concatenate((mask_tdac, mask_tdac_hold2), axis=0)
             mask_en = np.concatenate((mask_en, mask_en_hold2), axis=0)
-
-    return mask_en, mask_tdac
+    max_vth1 = max(vth1_list)
+    return mask_en, mask_tdac, max_vth1
 
 
 if __name__ == "__main__":
@@ -115,8 +129,9 @@ if __name__ == "__main__":
     print vth1_dict
 
     # at end need to save masks to file, need to save vth1_dict also
-    scan_results = output_file.create_group("/", 'scan_results', 'Scan Results')
+
     with tb.open_file(output_file, mode='w'):
+        scan_results = output_file.create_group("/", 'scan_results', 'Scan Results')
         output_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac)
         output_file.create_carray(scan_results, 'en_mask', obj=mask_en)
 
