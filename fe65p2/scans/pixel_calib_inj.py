@@ -35,34 +35,31 @@ local_configuration = {
     #     "preCompVbnDac": 50,
 
     # chip 3
-    #     "PrmpVbpDac": 160,
-    #     "vthin1Dac": 130,  # this will be overwritten with the average of all of the columns with the combine function from inj_cols
-    #     "vthin2Dac": 0,
-    #     "vffDac": 80,
-    #     "PrmpVbnFolDac": 81,
-    #     "vbnLccDac": 1,
-    #     "compVbnDac": 50,
-    #     "preCompVbnDac": 80,
-
-    # chip 4
-    "PrmpVbpDac": 36,
-    "vthin1Dac": 170,
+    "PrmpVbpDac": 165,
+    "vthin1Dac": 45,
     "vthin2Dac": 0,
-    "vffDac": 73,
+    "vffDac": 86,
     "PrmpVbnFolDac": 61,
     "vbnLccDac": 1,
-    "compVbnDac": 55,
-    "preCompVbnDac": 110,
+    "compVbnDac": 45,
+    "preCompVbnDac": 185,
+
+    # chip 4
+    #     "PrmpVbpDac": 125,
+    #     "vthin1Dac": 40,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 73,
+    #     "PrmpVbnFolDac": 61,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 45,
+    #     "preCompVbnDac": 180,
 
     # tdc calib scan
     "repeat_command": 100,
-    #     "scan_range": [200, 9800, 300],  # max electrons to tune with only runs up to about 9600
     "scan_range": np.array([200, 300, 400, 500, 600, 700, 800, 900, 1000,
-                            1100, 1200, 1300, 1400, 1500, 1600, 1700, 2000,
-                            2500, 3000, 4000, 5000, 6000, 7000, 8000, 9600]),
-    # bare chip mask: '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180115_174703_noise_tuning.h5',
-    # '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180116_091958_noise_tuning.h5',
-    "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180301_070254_noise_tuning.h5',
+                            1100, 1200, 1300, 1400, 1700, 2000, 2500,
+                            3000, 4500, 6500, 8000, 9000, 9600]),
+    #     "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180301_070254_noise_tuning.h5',
     "TDAC": 16,
     "pixel_range": [0, 4096],
 }
@@ -136,61 +133,33 @@ class PixelCalib(ScanBase):
             if col:
                 mask_en[inx * 4:(inx + 1) * 4, :] = True
 
+        try:
+            mask_en, mask_tdac, _ = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
+                                                                  file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
+                                                                  file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
+                                                                  file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
+                                                                  file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
+                                                                  file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
+                                                                  file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
+                                                                  file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
+        except:
+            pass
+        vth1 = kwargs.get("vthin1Dac", 50)
+#         vth1 = 54
+        print vth1
+
 #         if mask_filename:
 #             logging.info('***** Using pixel mask from file: %s', mask_filename)
 #
 #             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
 #                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
 #                 mask_en = in_file_h5.root.scan_results.en_mask[:]
+#                 dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
+#                 vth1 = dac_status['vthin1Dac'] + 10
+# #                 self.final_vth1 = vth1 + 10
+#                 print vth1
 
-        # run function from noise_cols to read all of the data from the noise scans for the columns
-
-        # chip3 tuning
-#         mask_en, mask_tdac, tune_vth1 = inj_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180206_210702_tdac_scan.h5',
-#                                                                         file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180206_211958_tdac_scan.h5',
-#                                                                         file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180206_213254_tdac_scan.h5',
-#                                                                         file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180206_214547_tdac_scan.h5',
-#                                                                         file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180207_024150_tdac_scan.h5',
-#                                                                         file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180207_025446_tdac_scan.h5',
-#                                                                         file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180207_030738_tdac_scan.h5',
-#                                                                         file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip3_tuning/inj_tuning/20180207_032133_tdac_scan.h5')
-
-#         try:
-#             #             mask_en, mask_tdac, tune_vth1 = inj_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_142534_tdac_scan_0.h5',
-#             #                                                                         file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_143524_tdac_scan_1.h5',
-#             #                                                                         file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_144513_tdac_scan_2.h5',
-#             #                                                                         file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_145502_tdac_scan_3.h5',
-#             #                                                                         file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_150453_tdac_scan_4.h5',
-#             #                                                                         file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_151444_tdac_scan_5.h5',
-#             #                                                                         file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_152433_tdac_scan_6.h5',
-#             #                                                                         file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_154559_tdac_scan_7.h5')
-#             mask_en, mask_tdac, max_vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_193050_noise_tuning.h5',
-#                                                                          file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_193901_noise_tuning.h5',
-#                                                                          file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_194751_noise_tuning.h5',
-#                                                                          file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_195616_noise_tuning.h5',
-#                                                                          file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_200506_noise_tuning.h5',
-#                                                                          file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_201332_noise_tuning.h5',
-#                                                                          file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_202216_noise_tuning.h5',
-#                                                                          file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_203038_noise_tuning.h5')
-#         except:
-#             pass
-#         if max_vth1:
-#             vth1 = max_vth1
-#         else:
-#             vth1 = kwargs.get("vthin1Dac", 20)
-# #         vth1 = 54
-#         print vth1
-
-        if mask_filename:
-            logging.info('***** Using pixel mask from file: %s', mask_filename)
-
-            with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-                mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-                mask_en = in_file_h5.root.scan_results.en_mask[:]
-                dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
-                vth1 = dac_status['vthin1Dac'] + 10
-#                 self.final_vth1 = vth1 + 10
-                print vth1
+        mask_en_test = np.reshape(mask_en, 4096)
 
         self.dut.write_en_mask(mask_en)
         self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
@@ -199,13 +168,13 @@ class PixelCalib(ScanBase):
 
         # this seems to be working OK problem is probably bad injection on GPAC
         # usually +0
-        self.dut['inj'].set_delay(80000)  # dealy betwean injections in 25ns unit
+        self.dut['inj'].set_delay(111111)  # dealy betwean injections in 25ns unit
         self.dut['inj'].set_width(100)
         self.dut['inj'].set_repeat(repeat_command)
 
         self.dut['inj'].set_en(False)  # Working?
 
-        self.dut['trigger'].set_delay(0)
+        self.dut['trigger'].set_delay(00)
         self.dut['trigger'].set_width(8)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
@@ -228,74 +197,51 @@ class PixelCalib(ScanBase):
         # step -> 64
 #         scan_range = kwargs.get("scan_range", [200, 9800, 300])  # stop at 10 000 because range saturates at 1.2...V==VDDA
         scan_range = np.array([200, 300, 400, 500, 600, 700, 800, 900, 1000,
-                               1100, 1200, 1300, 1400, 1500, 1600, 1700, 2000,
-                               2500, 3000, 4000, 5000, 6000, 7000, 8000, 9600])
+                               1100, 1200, 1300, 1400, 1700, 2000, 2500,
+                               3000, 4500, 6500, 8000, 9000, 9600])
 #         scan_range = list(np.linspace(scan_range[0], scan_range[1], scan_range[2]))
 #         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
         # loop over all pixels, pix number = scan_parameter
         pixel_range = kwargs.get("pixel_range", [0, 4092])
         print pixel_range
         for pix in range(pixel_range[0], pixel_range[1]):
+            if mask_en_test[pix] == True:
+                self.dut.set_for_configuration()
+                mask_hitor = mask_hitor.reshape(4096)
+                mask_hitor[:] = False
+                mask_hitor[pix] = True
+                mask_hitor = mask_hitor.reshape(64, 64)
+                mask_inj = mask_hitor
+                mask_en = mask_hitor
+                self.dut.write_en_mask(mask_en)
+                self.dut.write_hitor_mask(mask_hitor)
+                self.dut.write_inj_mask(mask_inj)
 
-            #             scan_range = list(np.linspace(1820, 17000, 30))
-            #             flavor_scan_params.append(scan_range)
-            #             if pix == 512:
-            #                 scan_range = list(np.linspace(1900, 17000, 30))
-            #                 flavor_scan_params.append(scan_range)
-            #             if pix == 1024:
-            #                 scan_range = list(np.linspace(1890, 17000, 30))
-            #                 flavor_scan_params.append(scan_range)
-            #             if pix == 1536:
-            #                 scan_range = list(np.linspace(2230, 17000, 30))
-            #                 flavor_scan_params.append(scan_range)
-            #             if pix == 2048:
-            #                 scan_range = list(np.linspace(1840, 17000, 30))
-            #                 flavor_scan_params.append(scan_range)
-            #             if pix == 2560:
-            #                 scan_range = list(np.linspace(1940, 17000, 30))
-            #                 flavor_scan_params.append(scan_range)
-            #             if pix == 3072:
-            #                 scan_range = list(np.linspace(2230, 17000, 30))
-            #                 flavor_scan_params.append(scan_range)
-            #             if pix == 3584:
-            #                 scan_range = list(np.linspace(1950, 17000, 30))
-            #                 flavor_scan_params.append(scan_range)
+                self.set_local_config(vth1=vth1)
+                logging.info('Starting Scan on Pixel %s' % pix)
 
-            self.dut.set_for_configuration()
-            mask_hitor = mask_hitor.reshape(4096)
-            mask_hitor[:] = False
-            mask_hitor[pix] = True
-            mask_hitor = mask_hitor.reshape(64, 64)
-            mask_inj = mask_hitor
-#             mask_en = mask_hitor
-#             self.dut.write_en_mask(mask_en)
-            self.dut.write_hitor_mask(mask_hitor)
-            self.dut.write_inj_mask(mask_inj)
+                for idx, elecs in enumerate(scan_range):
+                    with self.readout(scan_param_id=((scan_range.shape[0] * pix) + idx)):
 
-            self.set_local_config(vth1=vth1)
-            logging.info('Starting Scan on Pixel %s' % pix)
+                        #                     print elecs / (1000 * analysis.cap_fac())
+                        pulser['Pulser'].set_voltage(0., elecs / (1000 * analysis.cap_fac()), unit='V')
+                        time.sleep(0.2)
+                        # looping of pulses, need to enable the tdc for each one then record the data and then save it
 
-            for idx, elecs in enumerate(scan_range):
-                with self.readout(scan_param_id=((scan_range.shape[0] * pix) + idx)):
+                        self.dut['tdc']['ENABLE'] = True
+                        self.dut['inj'].start()
+                        time.sleep(.2)
 
-                    #                     print elecs / (1000 * analysis.cap_fac())
-                    pulser['Pulser'].set_voltage(0., elecs / (1000 * analysis.cap_fac()), unit='V')
-                    time.sleep(0.2)
-                    # looping of pulses, need to enable the tdc for each one then record the data and then save it
+                        while not self.dut['inj'].is_done():
+                            time.sleep(0.05)
 
-                    self.dut['tdc']['ENABLE'] = True
-                    self.dut['inj'].start()
+                        while not self.dut['trigger'].is_done():
+                            time.sleep(0.05)
 
-                    while not self.dut['inj'].is_done():
-                        time.sleep(0.05)
-
-                    while not self.dut['trigger'].is_done():
-                        time.sleep(0.05)
-
-                    self.dut['tdc'].ENABLE = False
-                    logging.info('Injected electrons %s Words Received: %s' % (str(elecs), str(self.fifo_readout.get_record_count())))
-#                     break
-#             break
+                        self.dut['tdc'].ENABLE = False
+                        logging.info('Injected electrons %s Words Received: %s' % (str(elecs), str(self.fifo_readout.get_record_count())))
+    #                     break
+    #             break
 
     def analyze(self):
         # open file and import data

@@ -6,7 +6,6 @@ created by Daniel Coquelin on 01/18/2018
 '''
 
 from fe65p2.scan_base import ScanBase
-import fe65p2.plotting as plotting
 import fe65p2.DGC_plotting as DGC_plotting
 import time
 import fe65p2.analysis as analysis
@@ -15,9 +14,8 @@ import logging
 import numpy as np
 import bitarray
 import tables as tb
-from bokeh.charts import output_file, save
-from bokeh.models.layouts import Column, Row
 import fe65p2.scans.inj_tuning_columns as inj_cols
+import fe65p2.scans.noise_tuning_columns as noise_cols
 
 
 from matplotlib.backends.backend_pdf import PdfPages
@@ -33,29 +31,29 @@ logging.basicConfig(level=logging.INFO,
 local_configuration = {
     "quad_columns": [True] * 16 + [False] * 0,
     #   DAC parameters
-    "PrmpVbpDac": 160,
-    "vthin1Dac": 120,
+    "PrmpVbpDac": 165,
+    "vthin1Dac": 35,
     "vthin2Dac": 0,
-    "vffDac": 80,
-    "PrmpVbnFolDac": 87,
+    "vffDac": 86,
+    "PrmpVbnFolDac": 61,
     "vbnLccDac": 1,
-    "compVbnDac": 50,
-    "preCompVbnDac": 86,
+    "compVbnDac": 45,
+    "preCompVbnDac": 185,
 
     #   thrs scan
     "mask_steps": 6,
     "repeat_command": 100,
-    "scan_range": [1.1, 1.2, 0.1],
+    "scan_range": [0.5, 1.2, 0.05],
     # bare chip mask: '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180115_174703_noise_tuning.h5',
-    "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_163749_noise_tuning.h5',
-    "TDAC": 16
+    #     "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_163749_noise_tuning.h5',
+    "TDAC": 15
 }
 
 
 class CrosstalkScan(ScanBase):
     scan_id = "crosstalk_scan"
 
-    def scan(self, mask_steps=1, TDAC=16, scan_range=[0.0, 1.0, 0.02], repeat_command=1000, mask_filename='', ** kwargs):
+    def scan(self, mask_steps=1, TDAC=15, scan_range=[0.0, 1.0, 0.02], repeat_command=1000, mask_filename='', ** kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -133,23 +131,25 @@ class CrosstalkScan(ScanBase):
 #                 mask_en = in_file_h5.root.scan_results.en_mask[:]
 
         # run function from noise_cols to read all of the data from the noise scans for the columns
-#         mask_en, mask_tdac, avg_vth1 = inj_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_142534_tdac_scan_0.h5',
-#                                                                    file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_143524_tdac_scan_1.h5',
-#                                                                    file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_144513_tdac_scan_2.h5',
-#                                                                    file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_145502_tdac_scan_3.h5',
-#                                                                    file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_150453_tdac_scan_4.h5',
-#                                                                    file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_151444_tdac_scan_5.h5',
-#                                                                    file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_152433_tdac_scan_6.h5',
-#                                                                    file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180222_154559_tdac_scan_7.h5')
+        mask_en, mask_tdac, vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
+                                                                 file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
+                                                                 file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
+                                                                 file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
+                                                                 file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
+                                                                 file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
+                                                                 file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
+                                                                 file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
+        print vth1
+        vth1 = 35
 
-        if mask_filename:
-            logging.info('***** Using pixel mask from file: %s', mask_filename)
-
-            with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-                mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-                mask_en = in_file_h5.root.scan_results.en_mask[:]
-                dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
-                vth1 = dac_status['vthin1Dac'] + 12
+#         if mask_filename:
+#             logging.info('***** Using pixel mask from file: %s', mask_filename)
+#
+#             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
+#                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
+#                 mask_en = in_file_h5.root.scan_results.en_mask[:]
+#                 dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
+#                 vth1 = dac_status['vthin1Dac'] + 12
 
         self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
         self.dut.write_en_mask(mask_en)
@@ -313,20 +313,22 @@ class CrosstalkScan(ScanBase):
         plt.clf()
         pp.savefig(noisehm2)
         plt.clf()
-        singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, chi2plot = DGC_plotting.scan_pix_hist(h5_filename)
-        pp.savefig(singlePixPolt)
+        singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, noiseFlav, chi2plot = DGC_plotting.scan_pix_hist(h5_filename)
+        pp.savefig(singlePixPolt, layout="tight")
         plt.clf()
-        pp.savefig(thresHM)
+        pp.savefig(thresHM, layout="tight")
         plt.clf()
-        pp.savefig(thresVsPix)
+        pp.savefig(thresVsPix, layout="tight")
         plt.clf()
-        pp.savefig(thresDist)
+        pp.savefig(thresDist, layout="tight")
         plt.clf()
-        pp.savefig(noiseHM)
+        pp.savefig(noiseHM, layout="tight")
         plt.clf()
-        pp.savefig(noiseDist)
+        pp.savefig(noiseDist, layout="tight")
         plt.clf()
-        pp.savefig(chi2plot)
+        pp.savefig(noiseFlav, layout="tight")
+        plt.clf()
+        pp.savefig(chi2plot, layout="tight")
         plt.clf()
         t_dac_plot = DGC_plotting.t_dac_plot(h5_filename)
         pp.savefig(t_dac_plot)

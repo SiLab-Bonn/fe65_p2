@@ -20,23 +20,23 @@ logging.basicConfig(level=logging.INFO,
 local_configuration = {
     #   DAC parameters
     # chip 3
-    #     "PrmpVbpDac": 160,
-    #     "vthin1Dac": 60,
-    #     "vthin2Dac": 0,
-    #     "vffDac": 80,
-    #     "PrmpVbnFolDac": 87,
-    #     "vbnLccDac": 1,
-    #     "compVbnDac": 50,
-    #     "preCompVbnDac": 86,
-    # chip4
-    "PrmpVbpDac": 125,
-    "vthin1Dac": 185,
+    "PrmpVbpDac": 165,
+    "vthin1Dac": 150,
     "vthin2Dac": 0,
-    "vffDac": 73,
-    "PrmpVbnFolDac": 61,
+    "vffDac": 91,
+    "PrmpVbnFolDac": 81,
     "vbnLccDac": 1,
     "compVbnDac": 45,
-    "preCompVbnDac": 180,
+    "preCompVbnDac": 185,
+    # chip4
+    #     "PrmpVbpDac": 125,
+    #     "vthin1Dac": 185,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 73,
+    #     "PrmpVbnFolDac": 61,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 45,
+    #     "preCompVbnDac": 180,
 
 }
 
@@ -50,7 +50,7 @@ def noise_sc(qcols):
         "columns": qcols,
         "stop_pixel_percent": 3,
         "pixel_disable_switch": 6,
-        "repeats": 10000,
+        "repeats": 100000,
     }
 
     scan_conf = dict(local_configuration, **custom_conf)

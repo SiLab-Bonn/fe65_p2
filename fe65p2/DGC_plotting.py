@@ -7,30 +7,26 @@ import data from scans for fe65p2 and plot data
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
-from numpy import uint16
-from docutils.parsers.rst.directives.tables import align
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 import tables as tb
 import analysis as analysis
 import yaml
-import matplotlib as mpl
-import matplotlib.mlab as mlab
 import analysis as analysis
-from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.backends.backend_agg import FigureCanvas
 from matplotlib.ticker import AutoMinorLocator
-from matplotlib.ticker import FormatStrFormatter
 from matplotlib.ticker import NullFormatter
 from matplotlib.figure import Figure
 from matplotlib.pyplot import cm
 from scipy import optimize
-from math import ceil
 
 
 # timewalk plotting not completed yet as i do not fully understand the
 # plotting functions
+
+cmap = plt.cm.viridis
+cmap.set_under(color='white')
 
 
 def plot_timewalk(h5_file_name):
@@ -334,8 +330,8 @@ def pix_inj_calib_lines(h5_file):
     fig = Figure()
     _ = FigureCanvas(fig)
     fig.clear()
-    cmap = plt.cm.viridis
-    cmap.set_under(color='white')
+#     cmap = plt.cm.viridis
+#     cmap.set_under(color='white')
     ax = fig.add_subplot(111)
     h1 = ax.imshow(weight, origin='lower', vmin=0.00000001,
                    extent=[line_space[0], line_space[-1], 0, 300])
@@ -372,7 +368,6 @@ def pix_inj_calib_tdc_v_elec(h5_file):
         tdc_data = in_file_h5.root.tdc_data[:]
         scan_args = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
     scan_range = scan_args['scan_range']
-    num_pix = scan_args['pixel_stop']
     pixel_range = scan_args['pixel_range']
     repeats = scan_args['repeat_command']
 #     inj_elecs = scan_args['scan_range']
@@ -461,8 +456,8 @@ def pixel_inj_calib_delay_vs_data(h5_file):
         fig = Figure()
         _ = FigureCanvas(fig)
         fig.clear()
-        cmap = plt.cm.viridis
-        cmap.set_under(color='white')
+#         cmap = plt.cm.viridis
+#         cmap.set_under(color='white')
         ax = fig.add_subplot(111)
         h = ax.hist2d(tdc_data, tdc_delay, bins=((max(tdc_data) - min(tdc_data)) / 2,
                                                  max(tdc_delay) - min(tdc_delay)), cmap=cmap, vmin=0.00000001)
@@ -497,8 +492,8 @@ def plot_occupancy(h5_file_name):
         _ = FigureCanvas(fig)
         fig.clear()
         fig.patch.set_facecolor('white')
-        cmap = plt.cm.viridis
-        cmap.set_under(color='white')
+#         cmap = plt.cm.viridis
+#         cmap.set_under(color='white')
         # ax = fig.add_subplot(111)
         ax_main = fig.add_axes(rect_main)
         ax_X = fig.add_axes(rect_histx)
@@ -543,8 +538,8 @@ def thresh_pix_heatmap(h5_file_name):
         ax1_main.set_ylabel('row')
         # ax1_main.xaxis.set_label_position('bottom')
         # ax1_main.xaxis.tick_bottom()
-        cmap = plt.cm.viridis
-        cmap.set_under(color='white')
+#         cmap = plt.cm.viridis
+#         cmap.set_under(color='white')
         h1 = ax1_main.imshow(Thresh, origin='lower', interpolation='none', cmap=cmap, vmin=0.00000001)
         # TODO: show color map
         cbar = fig1.colorbar(h1)
@@ -558,8 +553,8 @@ def thresh_pix_heatmap(h5_file_name):
         ax2_main.set_ylabel('row')
         # ax2_main.xaxis.set_label_position('bottom')
         # ax2_main.xaxis.set_ticks_position('bottom')
-        cmap = plt.cm.viridis
-        cmap.set_under(color='white')
+#         cmap = plt.cm.viridis
+#         cmap.set_under(color='white')
         h1 = ax2_main.imshow(Noise, origin='lower left', interpolation='none', cmap=cmap, vmin=0.00000001)
         cbar = fig2.colorbar(h1)
 
@@ -587,8 +582,8 @@ def tdac_heatmap(h5_file_name, en_mask_in=None, tdac_mask_in=None):
     ax1_main.set_title('TDAC for each pixel')
     ax1_main.set_xlabel('column')
     ax1_main.set_ylabel('row')
-    cmap = plt.cm.viridis
-    cmap.set_under(color='white')
+#     cmap = plt.cm.viridis
+#     cmap.set_under(color='white')
     h1 = ax1_main.imshow(tdac, origin='lower', interpolation='none', cmap=cmap, vmin=-0.0001)
     cbar = fig1.colorbar(h1)
 
@@ -822,11 +817,11 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
 
         ret_pure = ret_pure.astype(int)
 
-        pix_scan_hist = np.empty((s_meas.shape[1], repeat_command + 40))
+        pix_scan_hist = np.empty((s_meas.shape[1], repeat_command + 10))
         for param in range(s_meas.shape[1]):
             h_count = np.bincount(s_meas[:, param])
-            h_count = h_count[: repeat_command + 40]
-            pix_scan_hist[param] = np.pad(h_count, (0, (repeat_command + 40) - h_count.shape[0]), 'constant')
+            h_count = h_count[: repeat_command + 10]
+            pix_scan_hist[param] = np.pad(h_count, (0, (repeat_command + 10) - h_count.shape[0]), 'constant')
 
         log_hist = np.log10(pix_scan_hist * 0.5)
         # print pix_scan_hist
@@ -874,17 +869,14 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_thresHM_2.set_xlabel('Volts')
         ax_thresHM.xaxis.set_minor_locator(AutoMinorLocator(5))
         ax_thresHM.yaxis.set_minor_locator(AutoMinorLocator(4))
-        cmap = plt.cm.viridis
-        cmap.set_under(color='white')
+#         cmap = plt.cm.viridis
+#         cmap.set_under(color='white')
         h = ax_thresHM.hist2d(x=(data['scan_param'] * scan_range[2]) + scan_range[0], y=data['count'], weights=data['value'], bins=(
             max(data['scan_param']), max(data['count'])), cmap=cmap, vmin=1e-10)
-        ticks = ax_thresHM.get_xticks()
-        bound = ax_thresHM.get_xbound()
-        ax_thresHM_2.set_xticks(ticks)
-        ax_thresHM_2.set_xbound(bound)
-        ax_thresHM.set_xticklabels(analysis.cap_fac() * 1000 * ax_thresHM.get_xticks())
+        ax_thresHM.set_xticklabels(np.round(analysis.cap_fac() * 1000 * ax_thresHM.get_xticks()))
         fig2.colorbar(h[3], ax=ax_thresHM, pad=0.01)
         ax_thresHM.grid()
+        fig2.tight_layout()
 
         print 'passed thresh HM plot'
 
@@ -896,19 +888,20 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         _ = FigureCanvas(fig3)
         fig3.clear()
         ax_ThVsPx = fig3.add_subplot(111)
-        ax_ThVsPx_2 = ax_ThVsPx.twinx()
         ax_ThVsPx.set_title('Threshold Scatter Plot')
         ax_ThVsPx.set_xlabel('Pixel Number')
         ax_ThVsPx.set_ylabel('Electrons')
         ax_ThVsPx.xaxis.set_minor_locator(AutoMinorLocator(4))
         ax_ThVsPx.yaxis.set_minor_locator(AutoMinorLocator(4))
         ax_ThVsPx.plot(x_ThVsPx, y_ThVsPx, '.')
-        ax_ThVsPx_2.set_ylabel('Volts')
+        ax_ThVsPx_2 = ax_ThVsPx.twinx()
         ticks = ax_ThVsPx.get_yticks()
         bound = ax_ThVsPx.get_ybound()
         ax_ThVsPx_2.set_yticks(ticks)
         ax_ThVsPx_2.set_yticklabels(bound)
         ax_ThVsPx.set_yticklabels((analysis.cap_fac() * ticks * 1000).round())
+
+        ax_ThVsPx_2.set_ylabel('Volts')
 
         ax_ThVsPx.grid()
         print 'passed thesh vs pix'
@@ -926,7 +919,6 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         fig4.clear()
         ax_ThresDist = fig4.add_subplot(111)
         ax_ThresDist_2 = ax_ThresDist.twiny()
-#         n, bins, patchs = ax_ThresDist.hist(filtThres, bins=100)
 
         mu_th = np.mean(filtThres)
         sigma_th = np.sqrt(np.var(filtThres))
@@ -944,35 +936,44 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         print "mu_th: ", mu_th
         print "sigma_th: ", sigma_th
 #         for a loop to fit each columsn see below:
-        for flav in range(8):
-            #  try:
-            stop = flav * 512 + 512
-            start = flav * 512
-            thresh = Threshold_pure[start:stop]
-            bar_data = 0
-            bar_data, bins = np.histogram(thresh, 150, range=(min(filtThres), max(filtThres)))
-            bin_left = bins[:-1]
-            ax_ThresDist.bar(left=bin_left, height=bar_data, width=0.001, alpha=0.4, align="edge")
+        try:
+            for flav in range(8):
+                #  try:
+                stop = flav * 512 + 512
+                start = flav * 512
+                thresh = Threshold_pure[start:stop]
+                bar_data = 0
+                bar_data, bins = np.histogram(thresh, 150, range=(min(filtThres), max(filtThres)))
+                bin_left = bins[:-1]
+                ax_ThresDist.bar(left=bin_left, height=bar_data, width=0.001, alpha=0.4, align="edge")
 
-            lnspc_th = np.linspace(min(filtThres), max(filtThres), 150)
-            popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, thresh.mean(), thresh.std()), maxfev=1000)
-            y_th = analysis.gauss(lnspc_th, *popt_th)
-            ax_ThresDist.plot(lnspc_th, y_th, label=("Fl: %s Avg: %s \nSigma: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                     (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
-            ax_ThresDist.legend(prop={'size': 7})
-            print "Threshold fit flavor ", flav, ": ", popt_th
-            print "Threshold fit (electrons)flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
-#         try:
-#             lnspc_th = np.linspace(min(filtThres), max(filtThres), 100)
-#             popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, np.asarray(n), p0=(20, mu_th, sigma_th), maxfev=1000)
-#             y_th = analysis.gauss(lnspc_th, *popt_th)
-#             ax_ThresDist.plot(lnspc_th, y_th, 'r--', label=("Avg: %s \nSigma: %s" % ((popt_th[1] * analysis.cap_fac() * 1000).round(2),
-#                                                                                      (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
-#             ax_ThresDist.legend(loc=0)
-#             print "Threshold fit: ", popt_th
-#             print "Threshold fit (electrons): ", popt_th * analysis.cap_fac() * 1000
-#         except (RuntimeError, ValueError):
-#             print("error in fitting of threshold gaussian")
+                lnspc_th = np.linspace(min(filtThres), max(filtThres), 150)
+                popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, thresh.mean(), thresh.std()), maxfev=1000)
+                y_th = analysis.gauss(lnspc_th, *popt_th)
+                ax_ThresDist.plot(lnspc_th, y_th, label=("Fl: %s Avg: %s \nSigma: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
+                                                                                         (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                ax_ThresDist.legend(prop={'size': 7})
+                print "Threshold fit flavor ", flav, ": ", popt_th
+                print "Threshold fit (electrons)flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
+        except:
+            ax_ThresDist.clear()
+            ax_ThresDist.xaxis.set_minor_locator(AutoMinorLocator(5))
+            ax_ThresDist.yaxis.set_minor_locator(AutoMinorLocator(5))
+            ax_ThresDist.set_title('Threshold Distribution, percent included: %s' % perc_pix, y=1.10)
+            ax_ThresDist.set_xlabel('Electrons')
+            ax_ThresDist.set_ylabel('No. of Pixels')
+            n, bins, _ = ax_ThresDist.hist(filtThres, bins=100)
+            try:
+                lnspc_th = np.linspace(min(filtThres), max(filtThres), 100)
+                popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, np.asarray(n), p0=(20, mu_th, sigma_th), maxfev=1000)
+                y_th = analysis.gauss(lnspc_th, *popt_th)
+                ax_ThresDist.plot(lnspc_th, y_th, 'r--', label=("Avg: %s \nSigma: %s" % ((popt_th[1] * analysis.cap_fac() * 1000).round(2),
+                                                                                         (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                ax_ThresDist.legend(loc=0)
+                print "Threshold fit: ", popt_th
+                print "Threshold fit (electrons): ", popt_th * analysis.cap_fac() * 1000
+            except (RuntimeError, ValueError):
+                print("error in fitting of threshold gaussian")
         ticks = ax_ThresDist.get_xticks()
         bound = ax_ThresDist.get_xbound()
         ax_ThresDist.set_xticklabels((analysis.cap_fac() * ticks * 1000).round())
@@ -1010,7 +1011,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_noiseHM_2.set_yticks(ticks)
         ax_noiseHM_2.set_ybound(bound)
 #         ax_noiseHM_2.set_yticklabels((analysis.cap_fac() * ax_noiseHM.get_yticks()).round())
-        ax_noiseHM_2.set_ylabel('uV')
+        ax_noiseHM_2.set_ylabel('V')
         ax_noiseHM.grid()
         fig5.tight_layout()
 
@@ -1047,16 +1048,63 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_noiseDist.yaxis.set_minor_locator(AutoMinorLocator(2))
         ticks = ax_noiseDist.get_xticks()
         bound = ax_noiseDist.get_xbound()
+        ax_noiseDist.set_xticklabels((analysis.cap_fac() * ticks * 1000).round())
         ax_noiseDist_2.set_xticks(ticks)
         ax_noiseDist_2.set_xbound(bound)
-        ax_noiseDist.set_yticklabels((analysis.cap_fac() * ticks * 1000).round())
-        ax_noiseDist_2.set_xlabel('Noise [uV]')
+        ax_noiseDist_2.set_xlabel('Noise [V]')
 #         ax_noiseDist_2.set_xticklabels((analysis.cap_fac() * ax_noiseDist.get_xticks() * 1000).round())
         ax_noiseDist.grid()
 
         fig6.tight_layout()
         print "total length noise: ", len(noiseDist)
         print "reduced length noise: ", len(filtNoiseDist)
+
+        # noise hist with flavors
+        noiseDist_flav = Noise_pure
+        filtNoiseDist_flav = [x for x in noiseDist_flav if (x != 0.0 and x != 0.02)]
+        fig9 = Figure()
+        _ = FigureCanvas(fig9)
+        fig9.clear()
+        ax_noiseDist_fl = fig9.add_subplot(111)
+        ax_noiseDist_fl_2 = ax_noiseDist_fl.twiny()
+        ax_noiseDist_fl.set_title('Noise Distribution without 0 and 0.02 V entries', y=1.10)
+        ax_noiseDist_fl.set_xlabel('Electrons')
+        try:
+            for flav in range(8):
+                #  try:
+                stop = flav * 512 + 512
+                start = flav * 512
+                noise = Noise_pure[start:stop]
+                bar_data = 0
+                bar_data, bins = np.histogram(thresh, 150, range=(min(filtNoiseDist_flav), max(filtNoiseDist_flav)))
+                bin_left = bins[:-1]
+                ax_ThresDist.bar(left=bin_left, height=bar_data, width=0.001, alpha=0.4, align="edge")
+
+                lnspc_th = np.linspace(min(ax_noiseDist_fl), max(ax_noiseDist_fl), 150)
+                popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, noise.mean(), noise.std()), maxfev=1000)
+                y_th = analysis.gauss(lnspc_th, *popt_th)
+                ax_noiseDist_fl.plot(lnspc_th, y_th, label=("Fl: %s Avg: %s \nSigma: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
+                                                                                            (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                ax_noiseDist_fl.legend(prop={'size': 7})
+    #             print "Noise fit flavor ", flav, ": ", popt_th
+                print "Noise fit (electrons) flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
+        except:
+            print "noise fit plot fail"
+        ax_noiseDist_fl.xaxis.set_minor_locator(AutoMinorLocator(5))
+        ax_noiseDist_fl.yaxis.set_minor_locator(AutoMinorLocator(2))
+        ticks = ax_noiseDist_fl.get_xticks()
+        bound = ax_noiseDist_fl.get_xbound()
+        ax_noiseDist_fl.set_xticklabels((analysis.cap_fac() * ticks * 1000).round())
+        ax_noiseDist_fl_2.set_xticks(ticks)
+        ax_noiseDist_fl_2.set_xbound(bound)
+        ax_noiseDist_fl_2.set_xlabel('Noise [V]')
+#         ax_noiseDist_2.set_xticklabels((analysis.cap_fac() * ax_noiseDist.get_xticks() * 1000).round())
+        ax_noiseDist_fl.grid()
+
+        fig9.tight_layout()
+        print "passed noise flav"
+#         print "total length noise: ", len(noiseDist)
+#         print "reduced length noise: ", len(filtNoiseDist)
 
         chiX = [i for i in chi2long if i < 100 and i > 0.]
 
@@ -1091,4 +1139,4 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         fig6.tight_layout()
 #         fig7.tight_layout()
         fig8.tight_layout()
-        return fig1, fig2, fig3, fig4, fig5, fig6, fig8
+        return fig1, fig2, fig3, fig4, fig5, fig6, fig9, fig8

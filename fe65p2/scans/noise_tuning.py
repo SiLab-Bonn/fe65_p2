@@ -23,26 +23,26 @@ local_configuration = {
     "columns": [False] * 0 + [True] * 16 + [False] * 0,
     "stop_pixel_percent": 3,
     "pixel_disable_switch": 10,
-    "repeats": 200000,
+    "repeats": 10000,
     # chip 3
-    #     "PrmpVbpDac": 150,
-    #     "vthin1Dac": 150,
-    #     "vthin2Dac": 0,
-    #     "vffDac": 84,
-    #     "PrmpVbnFolDac": 51,
-    #     "vbnLccDac": 1,
-    #     "compVbnDac": 25,
-    #     "preCompVbnDac": 50,
-
-    # chip 4
-    "PrmpVbpDac": 72,
-    "vthin1Dac": 255,
+    "PrmpVbpDac": 140,
+    "vthin1Dac": 200,
     "vthin2Dac": 0,
-    "vffDac": 73,
+    "vffDac": 86,
     "PrmpVbnFolDac": 61,
     "vbnLccDac": 1,
-    "compVbnDac": 55,
-    "preCompVbnDac": 150,
+    "compVbnDac": 45,
+    "preCompVbnDac": 185,
+
+    # chip 4
+    #     "PrmpVbpDac": 72,
+    #     "vthin1Dac": 255,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 73,
+    #     "PrmpVbnFolDac": 61,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 55,
+    #     "preCompVbnDac": 150,
 
 }
 
@@ -153,7 +153,7 @@ class NoiseTuning(ScanBase):
         self.dut['global_conf']['PixConfLd'] = 0
         self.dut.write_global()
 
-        self.dut['trigger'].set_delay(10000)
+        self.dut['trigger'].set_delay(11111)
         self.dut['trigger'].set_width(8)
         self.dut['trigger'].set_repeat(repeats)
         self.dut['trigger'].set_en(False)
@@ -242,11 +242,11 @@ class NoiseTuning(ScanBase):
                 mask_en_hold = mask_en
                 mask_tdac_hold = mask_tdac
                 self.dut.set_for_configuration()
-                if np.mean(mask_tdac[mask_en == True]) <= 3:
-                    self.vth1Dac -= 7
-                elif 3 < np.mean(mask_tdac[mask_en == True]) <= 7:
+                if np.mean(mask_tdac[mask_en == True]) <= 6:
+                    self.vth1Dac -= 5
+                elif 6 < np.mean(mask_tdac[mask_en == True]) <= 9.5:
                     self.vth1Dac -= 3
-                elif 7 < np.mean(mask_tdac[mask_en == True]) < 15:
+                elif 9.5 < np.mean(mask_tdac[mask_en == True]) < 15:
                     self.vth1Dac -= vthin1DacInc
 
             time.sleep(0.001)

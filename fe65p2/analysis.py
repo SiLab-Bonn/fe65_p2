@@ -163,7 +163,8 @@ def analyze_pixel_calib_inj(h5_file_name):
         pixel_range = scan_args['pixel_range']
         fit_data = in_file_h5.create_table(in_file_h5.root, name='fit_data', description=TDCFitTable, title='fit_data')
         for pix in range(pixel_range[0], pixel_range[1]):
-            tdc_data_hold = tdc_data[(tdc_data['pix_num'] == pix) & (tdc_data['num_rec'] / repeats >= 0.98) & (tdc_data['elecs'] >= 3000)]
+            tdc_data_hold = tdc_data[(tdc_data['pix_num'] == pix) & (tdc_data['num_rec'] / repeats >= 0.98)]
+            # & (tdc_data['elecs'] >= 3000)]
             if tdc_data_hold['elecs'].shape[0] != 0:
                 min_inj = min(tdc_data_hold['elecs'])
                 max_inj = scan_range_inx[-1]
@@ -676,7 +677,7 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command, vth1=False):
                 logging.info('Fit-params-zcurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
             else:
                 popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[repeat_command,
-                                                                      mu_guess, sig_guess], sigma=data_errors, check_finite=False)
+                                                                      mu_guess - 0.01, sig_guess], sigma=data_errors, check_finite=False)
                 if popt[1] < 0:
                     popt[1] = 0
                 logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
