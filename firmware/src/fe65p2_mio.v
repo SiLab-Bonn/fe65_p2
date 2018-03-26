@@ -233,6 +233,9 @@ module fe65p2_mio (
     assign DISABLE_LD = GPIO_OUT[5];
     assign LD = GPIO_OUT[7];
     
+    //assign EN_HIT_OR_TRIGGER = GPIO_OUT[8];
+    //assign EN_HIT_OR_TRIGGER = 1;
+    
     wire SCLK, SDI, SDO, SEN, SLD;
     
     spi 
