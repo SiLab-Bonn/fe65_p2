@@ -189,8 +189,8 @@ NET "LEMO_RX<2>"                                LOC=N2        |    IOSTANDARD = 
 NET "LEMO_RX<1>"                                LOC=P1        |    IOSTANDARD = LVCMOS33;
 NET "LEMO_RX<0>"                                LOC=P3        |    IOSTANDARD = LVCMOS33;
 
-#NET "RJ45_RESET"                               LOC=L5        |    IOSTANDARD = LVCMOS33;
-#NET "RJ45_TRIGGER"                             LOC=M1        |    IOSTANDARD = LVCMOS33;
+NET "RJ45_RESET"                               LOC=L5        |    IOSTANDARD = LVCMOS33;
+NET "RJ45_TRIGGER"                             LOC=M1        |    IOSTANDARD = LVCMOS33;
 
 NET "LEMO_TX<2>"                                LOC=R3        |    IOSTANDARD = LVCMOS33;
 NET "LEMO_TX<1>"                                LOC=M5        |    IOSTANDARD = LVCMOS33;

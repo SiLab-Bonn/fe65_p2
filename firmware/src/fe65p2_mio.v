@@ -45,6 +45,11 @@
 `include "rrp_arbiter/rrp_arbiter.v"
 `include "utils/ddr_des.v"
 
+`include "tlu/tlu_controller.v"
+`include "tlu/tlu_controller_core.v"
+`include "tlu/tlu_controller_fsm.v"
+
+
 `ifdef COCOTB_SIM //for simulation
     `include "utils/IDDR_sim.v" 
     `include "utils/ODDR_sim.v" 
@@ -108,8 +113,10 @@ module fe65p2_mio (
     
     output wire DUT_CLK_DATA, 
     input wire DUT_OUT_DATA,
-	 
-	 output wire HIT_OR_TDC_OUT
+     
+     output wire HIT_OR_TDC_OUT,
+     
+     input wire RJ45_RESET, RJ45_TRIGGER
     
 );   
 
@@ -140,7 +147,13 @@ module fe65p2_mio (
  
     localparam TDC_BASEADDR = 16'h9000;
     localparam TDC_HIGHADDR = 16'ha000-1;
-
+     
+    localparam TLU_BASEADDR = 16'ha000;
+    localparam TLU_HIGHADDR = 16'hb000-1;
+     
+    localparam PULSE_TLU_VETO_BASEADDR = 16'hb000;
+    localparam PULSE_TLU_VETO_HIGHADDR = 16'hc000-1;
+     
     // ------- RESRT/CLOCK  ------- //
 
     (* KEEP = "{TRUE}" *) 
@@ -278,6 +291,8 @@ module fe65p2_mio (
     assign DUT_EN_PIX_SR_CNFG = /*(SEN| (|delay_cnt) ) &*/ GATE_EN_PIX_SR_CNFG; 
     assign DUT_LD_CNFG = (SLD & !DISABLE_LD) | TESTHIT | LD;
 
+    wire TRIGGER_ACKNOWLEDGE_FLAG, TRIGGER_ACCEPTED_FLAG;
+
     pulse_gen
     #( 
         .BASEADDR(PULSE_INJ_BASEADDR), 
@@ -328,10 +343,74 @@ module fe65p2_mio (
         .BUS_WR(BUS_WR),
     
         .PULSE_CLK(~CLK40),
-        .EXT_START(TESTHIT | DUT_INJ | HIT_OR_TDC_OUT),
+        .EXT_START(TESTHIT | DUT_INJ | HIT_OR_TDC_OUT | TRIGGER_ACCEPTED_FLAG),
         .PULSE(DUT_TRIGGER)
     );
+        
+     pulse_gen
+    #( 
+        .BASEADDR(PULSE_TLU_VETO_BASEADDR), 
+        .HIGHADDR(PULSE_TLU_VETO_HIGHADDR)
+    ) pulse_veto_tlu
+    (
+        .BUS_CLK(BUS_CLK),
+        .BUS_RST(BUS_RST),
+        .BUS_ADD(BUS_ADD),
+        .BUS_DATA(BUS_DATA[7:0]),
+        .BUS_RD(BUS_RD),
+        .BUS_WR(BUS_WR),
     
+        .PULSE_CLK(~CLK40),
+        .EXT_START(TRIGGER_ACCEPTED_FLAG),
+        .PULSE(TRIGGER_ACKNOWLEDGE_FLAG)
+    );
+     
+    // ----- TLU ----- //
+    wire FIFO_FULL;
+    wire TLU_FIFO_READ, TLU_FIFO_EMPTY, TLU_FIFO_PEEMPT_REQ;
+    wire [31:0] TLU_FIFO_DATA;
+    wire [31:0] TIMESTAMP;
+    
+   wire TLU_BUSY, TLU_CLOCK;
+    wire TDC_TRIG_OUT;
+    tlu_controller #(
+         .BASEADDR(TLU_BASEADDR),
+         .HIGHADDR(TLU_HIGHADDR),
+         .TLU_TRIGGER_MAX_CLOCK_CYCLES(32),
+         .DIVISOR(8)
+    ) i_tlu_controller (
+         .BUS_CLK(BUS_CLK),
+         .BUS_RST(BUS_RST),
+         .BUS_ADD(BUS_ADD),
+         .BUS_DATA(BUS_DATA),
+         .BUS_RD(BUS_RD),
+         .BUS_WR(BUS_WR),
+         
+         .TRIGGER_CLK(CLK40),
+         
+         .FIFO_READ(TLU_FIFO_READ),
+         .FIFO_EMPTY(TLU_FIFO_EMPTY),
+         .FIFO_DATA(TLU_FIFO_DATA),
+         
+         .FIFO_PREEMPT_REQ(TLU_FIFO_PEEMPT_REQ),
+         
+         .TRIGGER({7'b0,TDC_TRIG_OUT}),
+         .TRIGGER_VETO({7'b0,FIFO_FULL}),
+         
+         .TRIGGER_ACKNOWLEDGE(TRIGGER_ACKNOWLEDGE_FLAG),
+         .TRIGGER_ACCEPTED_FLAG(TRIGGER_ACCEPTED_FLAG),
+         //.EXT_TRIGGER_ENABLE(TLU_EXT_TRIGGER_ENABLE)
+         
+         .TLU_TRIGGER(TDC_TRIG_OUT),
+         .TLU_RESET(RJ45_RESET),
+         .TLU_BUSY(TLU_BUSY),
+         .TLU_CLOCK(TLU_CLOCK),
+         
+         .TIMESTAMP(TIMESTAMP)
+    );
+    //assign TRIGGER_ACKNOWLEDGE_FLAG = TRIGGER_ACCEPTED_FLAG;
+
+
     wire ARB_READY_OUT, ARB_WRITE_OUT;
     wire [31:0] ARB_DATA_OUT;
     
@@ -345,16 +424,16 @@ module fe65p2_mio (
     
     rrp_arbiter 
     #( 
-        .WIDTH(2)
+        .WIDTH(3)
     ) i_rrp_arbiter
     (
         .RST(BUS_RST),
         .CLK(BUS_CLK),
     
-        .WRITE_REQ({~FE_FIFO_EMPTY, ~TDC_FIFO_EMPTY}),
-        .HOLD_REQ({2'b0}),
-        .DATA_IN({FE_FIFO_DATA, TDC_FIFO_DATA}),
-        .READ_GRANT({FE_FIFO_READ, TDC_FIFO_READ}),
+        .WRITE_REQ({~FE_FIFO_EMPTY, ~TDC_FIFO_EMPTY, ~TLU_FIFO_EMPTY}),
+        .HOLD_REQ({2'b0, TLU_FIFO_PEEMPT_REQ}),
+        .DATA_IN({FE_FIFO_DATA, TDC_FIFO_DATA, TLU_FIFO_DATA}),
+        .READ_GRANT({FE_FIFO_READ, TDC_FIFO_READ, TLU_FIFO_READ}),
 
         .READY_OUT(ARB_READY_OUT),
         .WRITE_OUT(ARB_WRITE_OUT),
@@ -392,6 +471,7 @@ module fe65p2_mio (
         .BUS_WR(BUS_WR)
     );
     
+
     tdc_s3 #(
         .BASEADDR(TDC_BASEADDR),
         .HIGHADDR(TDC_HIGHADDR),
@@ -406,7 +486,7 @@ module fe65p2_mio (
         .TDC_IN(DUT_HIT_OR),
         .TDC_OUT(HIT_OR_TDC_OUT),
         .TRIG_IN(LEMO_RX[0]),
-        .TRIG_OUT(),
+        .TRIG_OUT(TDC_TRIG_OUT),
 
         .FIFO_READ(TDC_FIFO_READ),
         .FIFO_EMPTY(TDC_FIFO_EMPTY),
@@ -425,16 +505,18 @@ module fe65p2_mio (
         .TIMESTAMP(16'b0)
     );
 
-    assign LEMO_TX[0] = HIT_OR_TDC_OUT;
-	 assign LEMO_TX[1] = DUT_INJ;
-	 assign LEMO_TX[2] = 0;
-	 
-//	 assign TDC_FIFO_EMPTY = 1;
+    //assign LEMO_TX[0] = HIT_OR_TDC_OUT;
+     //assign LEMO_TX[1] = DUT_INJ;
+     assign LEMO_TX[0] = TLU_CLOCK; // trigger clock; also connected to RJ45 output
+     assign LEMO_TX[1] = TLU_BUSY; // TLU_BUSY signal; also connected to RJ45 output. Asserted when TLU FSM has 
+     assign LEMO_TX[2] = 0;
+     
+//     assign TDC_FIFO_EMPTY = 1;
 
     wire USB_READ;
     assign USB_READ = FREAD & FSTROBE;
     
-    wire FIFO_FULL;
+    
     sram_fifo #(
         .BASEADDR(FIFO_BASEADDR),
         .HIGHADDR(FIFO_HIGHADDR)
