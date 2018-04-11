@@ -1,0 +1,33 @@
+# daq paramaters for chip4
+    
+#    # working params: 
+    "PrmpVbpDac" : 160
+    "vthin1Dac" : 130
+    "vthin2Dac" : 0
+    "vffDac": 86
+    "PrmpVbnFolDac": 106
+    "vbnLccDac": 1
+    "compVbnDac": 50
+    "preCompVbnDac": 105
+    
+    "ex_pix_disable_list" : [176, 242, 478, 813, 2342, 2730, 2821, 2918, 3024]  
+    "mask_filename": ''
+    
+    "noise_col0": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180329_165145_noise_tuning.h5'
+    "noise_col1": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180329_180207_noise_tuning.h5'
+    "noise_col2": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180329_190900_noise_tuning.h5'
+    "noise_col3": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180329_201446_noise_tuning.h5'
+    "noise_col4": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180329_211846_noise_tuning.h5'
+    "noise_col5": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180329_222924_noise_tuning.h5'
+    "noise_col6": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180329_233343_noise_tuning.h5'
+    "noise_col7": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/chip4_tuning/20180330_003738_noise_tuning.h5'
+    
+    # params for tuning:
+    #"PrmpVbpDac": 160
+    #"vthin1Dac": 130
+    #"vthin2Dac": 0
+    #"vffDac": 86
+    #"PrmpVbnFolDac": 88
+    #"vbnLccDac": 1
+    #"compVbnDac": 50
+    #preCompVbnDac": 170

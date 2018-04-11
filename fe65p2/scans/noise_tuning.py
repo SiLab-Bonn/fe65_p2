@@ -19,20 +19,22 @@ import numpy as np
 import bitarray
 import tables as tb
 
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
+
 local_configuration = {
     "columns": [False] * 0 + [True] * 16 + [False] * 0,
-    "stop_pixel_percent": 3,
+    "stop_pixel_percent": 2,
     "pixel_disable_switch": 10,
-    "repeats": 10000,
+    "repeats": 100000,
     # chip 3
-    "PrmpVbpDac": 140,
-    "vthin1Dac": 200,
-    "vthin2Dac": 0,
-    "vffDac": 86,
-    "PrmpVbnFolDac": 61,
-    "vbnLccDac": 1,
-    "compVbnDac": 45,
-    "preCompVbnDac": 185,
+    #"PrmpVbpDac": 120,
+    #"vthin1Dac": 130,
+    #"vthin2Dac": 0,
+    #"vffDac": 92,
+    #"PrmpVbnFolDac": 88,
+    #"vbnLccDac": 1,
+    #"compVbnDac": 90,
+    #"preCompVbnDac": 140,
 
     # chip 4
     #     "PrmpVbpDac": 72,
@@ -153,7 +155,7 @@ class NoiseTuning(ScanBase):
         self.dut['global_conf']['PixConfLd'] = 0
         self.dut.write_global()
 
-        self.dut['trigger'].set_delay(11111)
+        self.dut['trigger'].set_delay(1000)
         self.dut['trigger'].set_width(8)
         self.dut['trigger'].set_repeat(repeats)
         self.dut['trigger'].set_en(False)
@@ -161,28 +163,30 @@ class NoiseTuning(ScanBase):
         np.set_printoptions(linewidth=180)
 
         finished = False
-
-        vthin1DacInc = 1
         mask_disable_count = 0
         iteration = 0
+        vth1_step = 1
 
         self.vth1Dac = kwargs['vthin1Dac']
         self.set_local_config(vth1=self.vth1Dac)
         mask_en_hold = mask_en
         mask_tdac_hold = mask_tdac
         inner_loop_cnt = 0
+        at_end = False
+#         exit_code = 0
         while not finished:
             inner_loop_cnt += 1
             with self.readout(scan_param_id=self.vth1Dac, fill_buffer=True, clear_buffer=True):
-
                 logging.info('Scan iteration: %d (vthin1Dac = %d)', iteration,  self.vth1Dac)
 
+                self.set_local_config(vth1=self.vth1Dac)
+                time.sleep(.2)
+
                 self.dut['trigger'].start()
-
+#                 time.sleep(.1)
                 while not self.dut['trigger'].is_done():
-                    time.sleep(0.01)
-
-            # self.fifo_readout.stop(timeout=1.)
+                    time.sleep(0.05)
+            self.dut.set_for_configuration()
 
             dqdata = self.fifo_readout.data
             data = np.concatenate([item[0] for item in dqdata])
@@ -191,77 +195,94 @@ class NoiseTuning(ScanBase):
             hits = hits * 64
             hits = hits + hit_data['row']
             value = np.bincount(hits, minlength=64 * 64)
-#             value = np.pad(value, (0, 64 * 64 - value.shape[0]), 'constant')
-
             nz = np.nonzero(value)
             cnz = np.count_nonzero(value)
+
             corrected = False
-            abs_occ_limit = int(10**-5 * 16 * repeats)
+#             abs_occ_limit = int(10**-5 * repeats) # can be used with 10**6 but 2 is fine for now
+            abs_occ_limit = 1
             cnz = np.count_nonzero(value > abs_occ_limit)
-            print "inner loop:", inner_loop_cnt, "occ_limit:", abs_occ_limit, "cnz", cnz
+            print "inner loop:", inner_loop_cnt, "occ_limit:", abs_occ_limit, "cnz(value > abs_occ_limit)", cnz, "nz", nz[0].shape[0]
+
             for i in nz[0]:
                 col = i / 64
                 row = i % 64
-
-                if mask_tdac[col, row] < 32:  # (val > 1?)
+                if mask_tdac[col, row] < 32:
                     mask_tdac[col, row] += 1
                     corrected = True
-
                 if mask_tdac[col, row] == 32 and mask_en[col, row] == True:
                     mask_en[col, row] = False
                     mask_disable_count += 1
 
-            logging.info('mean_tdac=' + str(np.round(np.mean(mask_tdac[mask_en == True]), 2)) + ' disabled=' +
-                         str(mask_disable_count) + ' hist_tdac=' + str(np.bincount(mask_tdac[mask_en == True])))
+            value = np.nan
+            mean_tdac = np.mean(mask_tdac[(mask_en == True) & (mask_tdac > 0)])
 
+            logging.info('mean_tdac >0: ' + str(np.round(mean_tdac, 2)) + ' disabled: ' +
+                         str(mask_disable_count) + ' hist_tdac: ' + str(np.bincount(mask_tdac[mask_en == True])))
+
+            if mean_tdac >= 14.5:
+                at_end = True
             # stop criteria:
-            # np.mean(mask_tdac[mask_en == True]) >=7
-            # if num disables is > 5% of chip/test area
+            # np.mean(mask_tdac[mask_en == True]) >=14.5
+            # if num disables is > x% of chip/test area
             if mask_disable_count >= stop_pixel_count or self.vth1Dac < 1:
                 finished = True
-#                 mask_en = mask_en_hold
-#                 mask_tdac = mask_tdac_hold
-                self.vth1Dac += vthin1DacInc
+                self.vth1Dac += 1
                 if mask_disable_count >= stop_pixel_count:
                     logging.info('exit from hitting max diable pixel percent, disabled: %s' % str(mask_disable_count))
+
                 if self.vth1Dac < 1:
                     logging.info('exit from lowest vth1Dac')
-            elif np.mean(mask_tdac[mask_en == True]) >= 15 and cnz <= 2:
+
+                print np.where(np.reshape(mask_en, 4096) == False)
+
+            elif mean_tdac >= 14.5 and cnz < 2:
                 finished = True
                 logging.info('exit from average tdac >=15, disabled count: %s' % str(mask_disable_count))
+                print np.histogram(np.where(np.reshape(mask_en, 4096) == False), bins=8, range=(0, 4096))
 
-            elif cnz <= stop_noisy_pixel_count:  # inner_loop_cnt >= 32 or
+            elif cnz <= stop_noisy_pixel_count and at_end == False:  # inner_loop_cnt >= 32 or
                 corrected = False
 #                 print "corrected loop reset", cnz, stop_noisy_pixel_count
-            # TODO: bin 16 doesnt get anything... all in bin 15
-            if np.mean(mask_tdac[mask_en == True]) >= 14:
-                stop_noisy_pixel_count /= 10
+
+            self.dut.write_en_mask(mask_en)
+            self.dut.write_tune_mask(mask_tdac)
 
             if not corrected:
                 inner_loop_cnt = 0
                 mask_en_hold = mask_en
                 mask_tdac_hold = mask_tdac
                 self.dut.set_for_configuration()
-                if np.mean(mask_tdac[mask_en == True]) <= 6:
-                    self.vth1Dac -= 5
-                elif 6 < np.mean(mask_tdac[mask_en == True]) <= 9.5:
-                    self.vth1Dac -= 3
-                elif 9.5 < np.mean(mask_tdac[mask_en == True]) < 15:
-                    self.vth1Dac -= vthin1DacInc
 
-            time.sleep(0.001)
-            self.dut.set_for_configuration()
-            self.dut.write_en_mask(mask_en)
-            self.dut.write_tune_mask(mask_tdac)
-            self.set_local_config(vth1=self.vth1Dac)
+                if mean_tdac <= 8.:  # and np.mean(mask_tdac[mask_en == True]) <= 6:
+                    vth1_step = 3
+
+                elif 8. < mean_tdac <= 13:
+                    vth1_step = 2
+
+                else:
+                    vth1_step = 1
+
+                self.vth1Dac -= vth1_step
+
+            if mean_tdac >= 12.5:
+                self.dut['trigger'].set_delay(3500)
+                self.dut['trigger'].set_repeat(1000000)
+            elif 12.5 > mean_tdac >= 9.:
+                self.dut['trigger'].set_delay(2000)
+                self.dut['trigger'].set_repeat(500000)
+            else:
+                self.dut['trigger'].set_repeat(50000)
+
+            nz = np.nan
             iteration += 1
-            time.sleep(.5)
 
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Results')
         self.h5_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac_hold)
         self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en_hold)
         logging.info('Final vthin1Dac value: %s', str(self.vth1Dac))
         self.final_vth1 = self.vth1Dac
+#         return self.final_vth1, mask_disable_count, tdac_hist
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'
@@ -272,9 +293,27 @@ class NoiseTuning(ScanBase):
         with tb.open_file(h5_filename, 'r+') as in_file_h5:
             raw_data = in_file_h5.root.raw_data[:]
             meta_data = in_file_h5.root.meta_data[:]
-
             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
+
             in_file_h5.create_table(in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+            mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
+
+            mask_en = in_file_h5.root.scan_results.en_mask[:]
+            scan_kwargs = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
+            scan_vth1 = yaml.load(in_file_h5.root.meta_data.attrs.vth1)
+            columns = scan_kwargs['columns']
+            mask_cols = np.full((64, 64), False, dtype=np.bool)
+            for inx, col in enumerate(columns):
+                if col:
+                    mask_cols[inx * 4:(inx + 1) * 4, :] = True
+            if float(scan_kwargs['stop_pixel_percent']) == (float(scan_kwargs['stop_pixel_percent']) / 100) * float(sum(scan_kwargs['columns'])) * 4 * 64:
+                exit_code = 1
+            elif scan_vth1 < 2:
+                exit_code = 2
+            else:
+                exit_code = 0
+
+            print "exit code:", exit_code
 
             occ = np.histogram2d(x=hit_data['col'], y=hit_data['row'],
                                  bins=(64, 64), range=((0, 64), (0, 64)))[0]
@@ -285,41 +324,37 @@ class NoiseTuning(ScanBase):
         status_plot = DGC_plotting.plot_status(h5_filename)
         pp.savefig(status_plot)
         occ_plot = DGC_plotting.plot_occupancy(h5_filename)
-        pp.savefig(occ_plot)
+        pp.savefig(occ_plot, layout='tight')
         plt.clf()
         tot_plot = DGC_plotting.plot_tot_dist(h5_filename)
-        pp.savefig(tot_plot)
+        pp.savefig(tot_plot, layout='tight')
         plt.clf()
         lv1id_plot = DGC_plotting.plot_lv1id_dist(h5_filename)
-        pp.savefig(lv1id_plot)
+        pp.savefig(lv1id_plot, layout='tight')
         plt.clf()
-        '''
-        singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist = DGC_plotting.scan_pix_hist(h5_filename)
-        pp.savefig(singlePixPolt)
+        tdac_hm, tdac_hist = DGC_plotting.tdac_heatmap(h5_file_name=None, en_mask_in=mask_en, tdac_mask_in=mask_tdac)
+        pp.savefig(tdac_hm, layout='tight')
         plt.clf()
-        pp.savefig(thresHM)
+        pp.savefig(tdac_hist, layout='tight')
         plt.clf()
-        pp.savefig(thresVsPix)
-        plt.clf()
-        pp.savefig(thresDist)
-        plt.clf()
-        pp.savefig(noiseHM)
-        plt.clf()
-        pp.savefig(noiseDist)
-        plt.clf()
-        '''
         t_dac_plot = DGC_plotting.t_dac_plot(h5_filename)
-        pp.savefig(t_dac_plot)
+        pp.savefig(t_dac_plot, layout='tight')
         pp.close()
 
         #output_file(self.output_filename + '.html', title=self.run_name)
         #save(Column(Row(occ_plot, tot_plot), t_dac, status_plot))
         # show(t_dac)
+        mask_disable_count = mask_en[(mask_en == False) & (mask_cols == True)].shape[0]
+        tdac_hist = np.bincount(mask_tdac[mask_en == True])
+        return scan_vth1, mask_disable_count, tdac_hist, exit_code
+
     def output_filename(self):
         return self.output_filename()
 
 
 if __name__ == "__main__":
     scan = NoiseTuning()
+    yaml_kwargs = yaml.load(open(yaml_file))
+    local_configuration.update(dict(yaml_kwargs))
     scan.start(**local_configuration)
-    scan.analyze()
+    _, _, _, _ = scan.analyze()

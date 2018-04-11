@@ -125,21 +125,22 @@ def create_tdc_inj_table(h5_file_name):
                     raw_data_idx = raw_data[raw_data_range]
                     tdc_data_idx = raw_data_idx & 0x0FFF
                     tdc_delay_idx = (raw_data_idx & 0x0FF00000) >> 20
-                    mu_data_idx = np.mean(tdc_data_idx)
-                    std_data_idx = np.std(tdc_data_idx)
-                    mu_delay_idx = np.mean(tdc_delay_idx)
-                    std_delay_idx = np.std(tdc_delay_idx)
+                    if tdc_data_idx[tdc_delay_idx < 253].shape[0] != 0:
+                        mu_data_idx = np.mean(tdc_data_idx[tdc_delay_idx < 253])
+                        std_data_idx = np.std(tdc_data_idx[tdc_delay_idx < 253])
+                        mu_delay_idx = np.mean(tdc_delay_idx[tdc_delay_idx < 253])
+                        std_delay_idx = np.std(tdc_delay_idx[tdc_delay_idx < 253])
 
-                    # save everything in tdc_tble
-                    tdc_table.row['pix_num'] = pix
-                    tdc_table.row['elecs'] = scan_range_inx[i]
-                    tdc_table.row['mu_tdc'] = mu_data_idx
-                    tdc_table.row['sigma_tdc'] = std_data_idx
-                    tdc_table.row['mu_delay'] = mu_delay_idx
-                    tdc_table.row['sigma_delay'] = std_delay_idx
-                    tdc_table.row['num_rec'] = raw_data_idx.shape[0]
-                    tdc_table.row.append()
-                    tdc_table.flush()
+                        # save everything in tdc_tble
+                        tdc_table.row['pix_num'] = pix
+                        tdc_table.row['elecs'] = scan_range_inx[i]
+                        tdc_table.row['mu_tdc'] = mu_data_idx
+                        tdc_table.row['sigma_tdc'] = std_data_idx
+                        tdc_table.row['mu_delay'] = mu_delay_idx
+                        tdc_table.row['sigma_delay'] = std_delay_idx
+                        tdc_table.row['num_rec'] = tdc_data_idx[tdc_delay_idx < 253].shape[0]
+                        tdc_table.row.append()
+                        tdc_table.flush()
             if pix % 100 == 0:
                 print "finished pixel:", pix
 
@@ -163,7 +164,8 @@ def analyze_pixel_calib_inj(h5_file_name):
         pixel_range = scan_args['pixel_range']
         fit_data = in_file_h5.create_table(in_file_h5.root, name='fit_data', description=TDCFitTable, title='fit_data')
         for pix in range(pixel_range[0], pixel_range[1]):
-            tdc_data_hold = tdc_data[(tdc_data['pix_num'] == pix) & (tdc_data['num_rec'] / repeats >= 0.98)]
+            tdc_data_hold = tdc_data[(tdc_data['pix_num'] == pix) & (tdc_data['num_rec'] / repeats >= 0.98)
+                                     & (tdc_data['num_rec'] / repeats <= 1.02) & (tdc_data['elecs'] >= 3000)]
             # & (tdc_data['elecs'] >= 3000)]
             if tdc_data_hold['elecs'].shape[0] != 0:
                 min_inj = min(tdc_data_hold['elecs'])
@@ -182,7 +184,7 @@ def analyze_pixel_calib_inj(h5_file_name):
                     popt, _ = curve_fit(linear, x, y, p0=[0.5, -10], sigma=err)
                     chi2 = ss.chisquare(y, linear(x, *popt))
                     # print chi2
-                except RuntimeError:
+                except:
                     print 'fit failed'
                     popt = [m_guess, 0.]
             else:
@@ -248,10 +250,17 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
         chi2 = np.empty(64 * 64)
         x = scan_range_inx
 
+#         en_mask = np.reshape(en_mask, 4096)
+#         for i in range(s_hist.shape[1]):
+#             pix = np.where(s_hist[:, i] > 105)
+#             for j in pix:
+#                 en_mask[j] = False
+#         en_mask = np.reshape(en_mask, (64, 64))
+
         for pix in range(64 * 64):
             # this can multi threaded
             if vth1:
-                fitOut = fit_scurve(s_hist[pix], x, repeat_command, vth1=True)
+                fitOut = fit_scurve(s_hist[pix], x, repeat_command, vth1=False)
             else:
                 fitOut = fit_scurve(s_hist[pix], x, repeat_command)
 
@@ -278,20 +287,16 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
         # TODO: weird, check
         Threshold_pure[Threshold_pure > scan_range_inx[-1]] = 0
 
-        hist_thresh_y, hist_thresh_x = np.histogram(
-            Threshold_pure, density=False, bins=50)
+        hist_thresh_y, hist_thresh_x = np.histogram(Threshold_pure, density=False, bins=50)
         Noise_pure[Noise_pure > 0.02] = 0.02
-        hist_noise_y, hist_noise_x = np.histogram(
-            Noise_pure, density=False, bins=50)
+        hist_noise_y, hist_noise_x = np.histogram(Noise_pure, density=False, bins=50)
         new_x = ()
         for entries in range(len(hist_thresh_x) - 1):
-            new_x = np.append(
-                new_x, (hist_thresh_x[entries] + hist_thresh_x[entries + 1]) / 2)
+            new_x = np.append(new_x, (hist_thresh_x[entries] + hist_thresh_x[entries + 1]) / 2)
         hist_thresh_x = new_x
         new_x = ()
         for entries in range(len(hist_noise_x) - 1):
-            new_x = np.append(
-                new_x, (hist_noise_x[entries] + hist_noise_x[entries + 1]) / 2)
+            new_x = np.append(new_x, (hist_noise_x[entries] + hist_noise_x[entries + 1]) / 2)
         hist_noise_x = new_x
         gauss_thresh = fit_gauss(hist_thresh_x[2:-4], hist_thresh_y[2:-4])
         gauss_noise = fit_gauss(hist_noise_x[2:-4], hist_noise_y[2:-4])
@@ -362,6 +367,9 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
                                               shape=noise.shape)
         noise_hist[:] = noise
         noise_pure_hist.attrs.fitdata_noise = noise_fit_values
+
+#         print 'percent disabled', 100 * (en_mask[en_mask == False].shape[0] / 4096.)
+#         en_mask[...] = en_mask
 
 
 def analyze_tdac_scan(h5_file_name):
@@ -646,25 +654,19 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command, vth1=False):
     d = (max(PlsrDAC) - min(PlsrDAC)) / (len(PlsrDAC))
     q_min = min(PlsrDAC) - d / 2.
     q_max = max(PlsrDAC) + d / 2.
+
     data_errors = np.sqrt(scurve_data * (1 - (scurve_data / repeat_command)))
-    data_errors[data_errors < 1.] = 1.
+    min_err = np.sqrt(0.5 - 0.5 / repeat_command)
+    data_errors[data_errors < min_err] = min_err
+    sel_bad = scurve_data > repeat_command
+    data_errors[sel_bad] = (scurve_data - repeat_command)[sel_bad]
+
     mu1 = np.sum(scurve_data[scurve_data <= (repeat_command / 2.)])
     mu2 = np.sum(scurve_data[scurve_data > (repeat_command / 2.)])
     mu_guess = q_max - ((q_max - q_min) * M / (n * A))
     sig_guess = d * ((mu1 + mu2) / A) * np.sqrt(np.pi / 2.)
     max_occ = np.median(scurve_data[index:])
-#     mu_tild = np.sum(scurve_data[scurve_data <= (repeat_command / 2.)]) + np.sum(A - scurve_data[scurve_data > (repeat_command / 2.)])
-#     sig_guess = (float(mu_tild) / A) * (np.sqrt(np.pi / 2.)).astype(float)
-#     min_itt = 0
-#     max_itt = 0
-#     for itt in range(len(scurve_data)):
-#         if scurve_data[itt] <= repeat_command * 0.05:
-#             min_itt = itt
-#         if scurve_data[itt] >= repeat_command * 0.95:
-#             max_itt = itt
-#             break
-#     sigma_guess2 = (PlsrDAC[max_itt] - PlsrDAC[min_itt]) / 2.
-    # TODO: fix the sigma guess functions
+
     p0 = [repeat_command, mu_guess, 0.01]
     # print p0
     if abs(max_occ) <= 1e-08 and not vth1:  # or index == 0: occupancy is zero or close to zero
@@ -677,13 +679,13 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command, vth1=False):
                 logging.info('Fit-params-zcurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
             else:
                 popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[repeat_command,
-                                                                      mu_guess - 0.01, sig_guess], sigma=data_errors, check_finite=False)
+                                                                      mu_guess, sig_guess], sigma=data_errors, check_finite=False)
                 if popt[1] < 0:
                     popt[1] = 0
                 logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
         except RuntimeError:  # fit failed
             popt = [repeat_command, mu_guess, sig_guess]
-            logging.info('Fit did not work scurve: %s %s %s', str(popt[0]), str(popt[1]), str(popt[2]))
+            logging.info('*****Fit did not work scurve: %s %s %s', str(popt[0]), str(popt[1]), str(popt[2]))
 
 #     chi2 = np.sum((np.diff(scurve_data - scurve(PlsrDAC, *popt))**2) * repeat_command)
     chi2 = ss.chisquare(scurve_data, scurve(PlsrDAC, *popt))

@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import yaml
 
 local_configuration = {
-    "triggers": 100000,
+    "triggers": 1000000,
     "columns": [True] * 16,
 
     # DAC parameters
@@ -40,7 +40,7 @@ local_configuration = {
     "compVbnDac": 45,
     "preCompVbnDac": 185,
 
-    "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180301_070254_noise_tuning.h5',
+    "mask_filename": '/home/daniel/Documents/InterestingPlots/chip3/noise_tuning_14.05_26_0.h5',
 }
 
 
@@ -67,32 +67,35 @@ class NoiseOccVth1(ScanBase):
         mask_tdac = np.full([64, 64], 15, dtype=np.uint8)
         mask_hitor = np.full([64, 64], True, dtype=np.bool)
 
-        try:
-            mask_en, mask_tdac, vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
-                                                                     file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
-                                                                     file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
-                                                                     file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
-                                                                     file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
-                                                                     file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
-                                                                     file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
-                                                                     file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
-        except:
-            vth1 = kwargs.get("vthin1Dac", 15)
-
-        self.vth1Dac = vth1
+#         try:
+#             mask_en, mask_tdac, vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
+#                                                                      file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
+#                                                                      file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
+#                                                                      file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
+#                                                                      file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
+#                                                                      file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
+#                                                                      file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
+#                                                                      file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
+#         except:
+#             vth1 = kwargs.get("vthin1Dac", 15)
+#
+#         self.vth1Dac = vth1
 #         mask_filename = kwargs.get(
 #             "mask_filename", '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_101242_noise_tuning.h5')
 
-#         if mask_filename:
-#             logging.info('***** Using pixel mask from file: %s', mask_filename)
-#
-#             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-#                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-#                 mask_en = in_file_h5.root.scan_results.en_mask[:]
-#                 dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
-#                 vth1 = dac_status['vthin1Dac']
+        if mask_filename:
+            logging.info('***** Using pixel mask from file: %s', mask_filename)
 
-        self.vth1Dac = vth1 + 20
+            with tb.open_file(str(mask_filename), 'r') as in_file_h5:
+                mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
+                mask_en = in_file_h5.root.scan_results.en_mask[:]
+                mask_tdac[mask_tdac == 32] = 31
+
+                vth1 = yaml.load(in_file_h5.root.meta_data.attrs.vth1) + 20
+#                 vth1 = dac_status['vthin1Dac']
+                print vth1
+
+        self.vth1Dac = vth1
         print vth1
 
         self.dut.start_up()
@@ -116,7 +119,7 @@ class NoiseOccVth1(ScanBase):
         # best delay here was ~395 (for chip1) make sure to tune before data taking.
         # once tuned reduce the number of triggers sent (width)
 
-        self.dut['trigger'].set_delay(11111)
+        self.dut['trigger'].set_delay(1500)
         self.dut['trigger'].set_width(8)
         self.dut['trigger'].set_repeat(triggers)
 

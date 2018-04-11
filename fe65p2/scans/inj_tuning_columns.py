@@ -17,6 +17,8 @@ import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
+
 local_configuration = {
     #   DAC parameters
     # chip 3
@@ -30,18 +32,18 @@ local_configuration = {
     #     "preCompVbnDac": 86,
 
     # chip 4
-    "PrmpVbpDac": 170,
-    "vthin1Dac": 100,
-    "vthin2Dac": 0,
-    "vffDac": 86,
-    "PrmpVbnFolDac": 91,
-    "vbnLccDac": 1,
-    "compVbnDac": 42,
-    "preCompVbnDac": 90,
+    #     "PrmpVbpDac": 170,
+    #     "vthin1Dac": 100,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 86,
+    #     "PrmpVbnFolDac": 91,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 42,
+    #     "preCompVbnDac": 90,
 
     "mask_steps": 6,
     "repeat_command": 50,
-    "inj_electrons": 1500,
+    "inj_electrons": 1000,
     # bare chip mask: '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180115_174703_noise_tuning.h5',
     "mask_filename": '',  # '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180116_091958_noise_tuning.h5',
     "TDAC": 16
@@ -55,9 +57,11 @@ def vth1_sc(qcols):
 
     custom_conf = {
         "quad_columns": qcols,
-        "scan_range": [40, 160, 2],  # this is the vth1 scan range
+        "scan_range": [25, 120, 2],  # this is the vth1 scan range
     }
 
+    yaml_kwargs = yaml.load(open(yaml_file))
+    local_configuration.update(dict(yaml_kwargs))
     scan_conf = dict(local_configuration, **custom_conf)
     global_thresh_scan.start(**scan_conf)
     final_vth1 = global_thresh_scan.analyze()
@@ -76,6 +80,8 @@ def tdac_sc(qcols, vth1):
         "vth1_from_scan": vth1 + 7,
         "scan_range": [0, 32, 1],
     }
+    yaml_kwargs = yaml.load(open(yaml_file))
+    local_configuration.update(dict(yaml_kwargs))
     scan_conf = dict(local_configuration, **custom_conf)
     local_tdac_scan.start(**scan_conf)
     local_tdac_scan.analyze()
@@ -108,9 +114,9 @@ def combine_prev_scans(file0, file1, file2, file3, file4, file5, file6, file7):
 
             mask_tdac = np.concatenate((mask_tdac, mask_tdac_hold2), axis=0)
             mask_en = np.concatenate((mask_en, mask_en_hold2), axis=0)
-    print np.mean(vth1_list)
+#     print np.mean(vth1_list)
     avg_vth1 = np.mean(vth1_list) + 30
-    return mask_en, mask_tdac.astype(int), avg_vth1
+    return mask_en, mask_tdac.astype(int), max(vth1_list)
 
 
 if __name__ == "__main__":

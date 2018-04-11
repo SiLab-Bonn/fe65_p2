@@ -17,9 +17,10 @@ import fe65p2.scans.noise_tuning_columns as noise_cols
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from basil.dut import Dut
-import os
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
+
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip4.yaml'
 
 local_configuration = {
     "quad_columns": [True] * 16 + [False] * 0,
@@ -35,14 +36,14 @@ local_configuration = {
     #     "preCompVbnDac": 50,
 
     # chip 3
-    "PrmpVbpDac": 165,
-    "vthin1Dac": 45,
-    "vthin2Dac": 0,
-    "vffDac": 86,
-    "PrmpVbnFolDac": 61,
-    "vbnLccDac": 1,
-    "compVbnDac": 45,
-    "preCompVbnDac": 185,
+    #     "PrmpVbpDac": 120,
+    #     "vthin1Dac": 130,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 92,
+    #     "PrmpVbnFolDac": 88,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 90,
+    #     "preCompVbnDac": 140,
 
     # chip 4
     #     "PrmpVbpDac": 125,
@@ -56,10 +57,10 @@ local_configuration = {
 
     # tdc calib scan
     "repeat_command": 100,
-    "scan_range": np.array([200, 300, 400, 500, 600, 700, 800, 900, 1000,
-                            1100, 1200, 1300, 1400, 1700, 2000, 2500,
-                            3000, 4500, 6500, 8000, 9000, 9600]),
-    #     "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180301_070254_noise_tuning.h5',
+    "scan_range": np.array([400, 600, 800, 1000, 1200, 1400, 1600,
+                            1800, 2000, 2200, 2400, 3000, 3500, 4000,
+                            4500, 5000, 6000, 7000, 8000, 9000, 9600]),
+    "mask_filename": '/home/daniel/Documents/InterestingPlots/chip3/20180321_112749_noise_tuning.h5',
     "TDAC": 16,
     "pixel_range": [0, 4096],
 }
@@ -133,31 +134,18 @@ class PixelCalib(ScanBase):
             if col:
                 mask_en[inx * 4:(inx + 1) * 4, :] = True
 
-        try:
-            mask_en, mask_tdac, _ = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
-                                                                  file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
-                                                                  file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
-                                                                  file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
-                                                                  file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
-                                                                  file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
-                                                                  file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
-                                                                  file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
-        except:
-            pass
-        vth1 = kwargs.get("vthin1Dac", 50)
-#         vth1 = 54
+        file0 = kwargs.get("noise_col0")
+        file1 = kwargs.get("noise_col1")
+        file2 = kwargs.get("noise_col2")
+        file3 = kwargs.get("noise_col3")
+        file4 = kwargs.get("noise_col4")
+        file5 = kwargs.get("noise_col5")
+        file6 = kwargs.get("noise_col6")
+        file7 = kwargs.get("noise_col7")
+        mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
+            file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
+        vth1 += 20
         print vth1
-
-#         if mask_filename:
-#             logging.info('***** Using pixel mask from file: %s', mask_filename)
-#
-#             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-#                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-#                 mask_en = in_file_h5.root.scan_results.en_mask[:]
-#                 dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
-#                 vth1 = dac_status['vthin1Dac'] + 10
-# #                 self.final_vth1 = vth1 + 10
-#                 print vth1
 
         mask_en_test = np.reshape(mask_en, 4096)
 
@@ -169,7 +157,7 @@ class PixelCalib(ScanBase):
         # this seems to be working OK problem is probably bad injection on GPAC
         # usually +0
         self.dut['inj'].set_delay(111111)  # dealy betwean injections in 25ns unit
-        self.dut['inj'].set_width(100)
+        self.dut['inj'].set_width(1000)
         self.dut['inj'].set_repeat(repeat_command)
 
         self.dut['inj'].set_en(False)  # Working?
@@ -196,9 +184,9 @@ class PixelCalib(ScanBase):
         # min -> 1 800
         # step -> 64
 #         scan_range = kwargs.get("scan_range", [200, 9800, 300])  # stop at 10 000 because range saturates at 1.2...V==VDDA
-        scan_range = np.array([200, 300, 400, 500, 600, 700, 800, 900, 1000,
-                               1100, 1200, 1300, 1400, 1700, 2000, 2500,
-                               3000, 4500, 6500, 8000, 9000, 9600])
+#         scan_range = np.array([400, 600, 800, 1000, 1200, 1400, 1600,
+#                                1800, 2000, 2200, 2400, 3000, 3500, 4000,
+#                                4500, 5000, 6000, 7000, 8000, 9000, 9600]),
 #         scan_range = list(np.linspace(scan_range[0], scan_range[1], scan_range[2]))
 #         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
         # loop over all pixels, pix number = scan_parameter
@@ -225,12 +213,11 @@ class PixelCalib(ScanBase):
 
                         #                     print elecs / (1000 * analysis.cap_fac())
                         pulser['Pulser'].set_voltage(0., elecs / (1000 * analysis.cap_fac()), unit='V')
-                        time.sleep(0.2)
                         # looping of pulses, need to enable the tdc for each one then record the data and then save it
 
                         self.dut['tdc']['ENABLE'] = True
                         self.dut['inj'].start()
-                        time.sleep(.2)
+#                         time.sleep(.1)
 
                         while not self.dut['inj'].is_done():
                             time.sleep(0.05)
@@ -240,6 +227,7 @@ class PixelCalib(ScanBase):
 
                         self.dut['tdc'].ENABLE = False
                         logging.info('Injected electrons %s Words Received: %s' % (str(elecs), str(self.fifo_readout.get_record_count())))
+#                         time.sleep(0.)
     #                     break
     #             break
 
@@ -306,5 +294,7 @@ class PixelCalib(ScanBase):
 
 if __name__ == "__main__":
     scan = PixelCalib()
+    yaml_kwargs = yaml.load(open(yaml_file))
+    local_configuration.update(dict(yaml_kwargs))
     scan.start(**local_configuration)
     scan.analyze()

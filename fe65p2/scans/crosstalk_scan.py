@@ -31,21 +31,21 @@ logging.basicConfig(level=logging.INFO,
 local_configuration = {
     "quad_columns": [True] * 16 + [False] * 0,
     #   DAC parameters
-    "PrmpVbpDac": 165,
-    "vthin1Dac": 35,
+    "PrmpVbpDac": 120,
+    "vthin1Dac": 50,
     "vthin2Dac": 0,
-    "vffDac": 86,
-    "PrmpVbnFolDac": 61,
+    "vffDac": 92,
+    "PrmpVbnFolDac": 88,
     "vbnLccDac": 1,
-    "compVbnDac": 45,
-    "preCompVbnDac": 185,
+    "compVbnDac": 90,
+    "preCompVbnDac": 140,
 
     #   thrs scan
     "mask_steps": 6,
     "repeat_command": 100,
-    "scan_range": [0.5, 1.2, 0.05],
+    "scan_range": [0.001, 1.3, 0.1],
     # bare chip mask: '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180115_174703_noise_tuning.h5',
-    #     "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_163749_noise_tuning.h5',
+    #     "mask_filename": '/home/daniel/Documents/InterestingPlots/chip3/noise_tuning_14.05_26_0.h5',
     "TDAC": 15
 }
 
@@ -131,31 +131,33 @@ class CrosstalkScan(ScanBase):
 #                 mask_en = in_file_h5.root.scan_results.en_mask[:]
 
         # run function from noise_cols to read all of the data from the noise scans for the columns
-        mask_en, mask_tdac, vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
-                                                                 file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
-                                                                 file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
-                                                                 file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
-                                                                 file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
-                                                                 file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
-                                                                 file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
-                                                                 file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
-        print vth1
-        vth1 = 35
+#         mask_en, mask_tdac, vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
+#                                                                  file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
+#                                                                  file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
+#                                                                  file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
+#                                                                  file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
+#                                                                  file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
+#                                                                  file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
+#                                                                  file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
+#         print vth1
+#         vth1 = 35
 
-#         if mask_filename:
-#             logging.info('***** Using pixel mask from file: %s', mask_filename)
-#
-#             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-#                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
+        if mask_filename:
+            logging.info('***** Using pixel mask from file: %s', mask_filename)
+
+            with tb.open_file(str(mask_filename), 'r') as in_file_h5:
+                mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
 #                 mask_en = in_file_h5.root.scan_results.en_mask[:]
+                mask_en_from_file = in_file_h5.root.scan_results.en_mask[:]
 #                 dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
-#                 vth1 = dac_status['vthin1Dac'] + 12
+                vth1 = yaml.load(in_file_h5.root.meta_data.attrs.vth1) + 20
+                print vth1
 
         self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
         self.dut.write_en_mask(mask_en)
         self.dut.write_hitor_mask(mask_hitor)
 
-        pulse_width = 60000  # unit: ns
+        pulse_width = 30000  # unit: ns
         # this seems to be working OK problem is probably bad injection on GPAC
         # usually +0
         self.dut['inj'].set_delay(30000)  # dealy betwean injection in 25ns unit
@@ -170,15 +172,8 @@ class CrosstalkScan(ScanBase):
 
         pulser['Pulser'].set_pulse_period(pulse_width * 10**-9)
         mask_steps = kwargs.get("mask_steps", mask_steps)
-#         vth1 = kwargs.get("vthin1Dac", 120)
-#         vth1 = vth1
         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
 
-        '''
-        for qcol in range(16):
-                        mask_inj[qcol * 4:(qcol + 1) * 4 + 1, i::mask_steps] = True
-                        mask_en[qcol * 4:(qcol + 1) * 4 + 1, i::mask_steps] = False
-                        '''
         for idx, k in enumerate(scan_range):
             if pulser_test:
                 pulser['Pulser'].set_voltage(scan_range[0], scan_range[0] + k, unit='V')
@@ -204,17 +199,16 @@ class CrosstalkScan(ScanBase):
 
                     mask_inj[:, :] = False
                     mask_en[:, :] = True
+#                     mask_en[mask_en_from_file == False] = False
                     mask_inj = mask_inj.reshape(4096)
                     mask_inj[i::mask_steps] = True
                     mask_inj = mask_inj.reshape(64, 64)
-#                     for qcol in range(16):
-#                         mask_inj[qcol * 4:(qcol + 1) * 4 + 1, i::mask_steps] = True
-                    mask_en[mask_inj == True] = False
+                    mask_en[(mask_inj == True)] = False
 
                     self.dut.write_en_mask(mask_en)
                     self.dut.write_inj_mask(mask_inj)
 
-                    self.set_local_config(vth1=vth1)
+                    self.set_local_config()
 
                     self.dut['inj'].start()
                     time.sleep(0.3)
