@@ -19,6 +19,7 @@ from matplotlib.ticker import AutoMinorLocator
 from matplotlib.ticker import NullFormatter
 from matplotlib.figure import Figure
 from matplotlib.pyplot import cm
+from matplotlib.colors import LogNorm
 from scipy import optimize
 
 
@@ -351,7 +352,7 @@ def pix_inj_calib_lines(h5_file):
     _ = FigureCanvas(fig2)
     fig2.clear()
     ax2 = fig2.add_subplot(111)
-    bar_data, bins = np.histogram(fit_data['chisq'], 20, range=(min(fit_data['chisq']), max(fit_data['chisq'])))
+    bar_data, bins = np.histogram(fit_data['chisq'], 40, range=(min(fit_data['chisq']), max(fit_data['chisq'])))
     bin_left = bins[:-1]
     ax2.bar(left=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
     ax2.set_title("Chi Squared values of fits (elecs>=3000)")
@@ -407,16 +408,16 @@ def pix_inj_calib_tdc_v_elec(h5_file):
     _ = FigureCanvas(fig2)
     fig2.clear()
     ax2 = fig2.add_subplot(111)
-    cmap = plt.cm.viridis
-    cmap.set_under(color='white')
 #     print tdc_data['mu_tdc'][tdc_data['inj_elecs'] <= 3000]
+    np.nan_to_num(tdc_data['mu_tdc'])
+    print min(tdc_data['elecs'][(tdc_data['elecs'] <= 3000)]), max(tdc_data['elecs'][(tdc_data['elecs'] <= 3000)]) + 50
+    print 0, max(tdc_data['mu_tdc'][(tdc_data['elecs'] <= 3000)])
     h = ax2.hist2d(tdc_data['elecs'][tdc_data['elecs'] <= 3000],
                    tdc_data['mu_tdc'][tdc_data['elecs'] <= 3000],
                    bins=((max(tdc_data['elecs'][(tdc_data['elecs'] <= 3000)]) - min(tdc_data['elecs'][(tdc_data['elecs'] <= 3000)])) / 50,
                          max(tdc_data['mu_tdc'][tdc_data['elecs'] <= 3000])),
-                   range=((min(tdc_data['elecs'][(tdc_data['elecs'] <= 3000)]), max(tdc_data['elecs'][(tdc_data['elecs'] <= 3000)]) + 50),
-                          (0, max(tdc_data['mu_tdc'][tdc_data['elecs'] <= 3000]))),
-                   cmap=cmap, vmin=0.00000001)
+                   range=((0, 3000), (0, 300)),
+                   cmap=cmap, vmin=1.5)
     fig2.colorbar(h[3], ax=ax2, pad=0.01)
     ax2.set_xlabel("Injected Electrons")
     ax2.set_ylabel("TDC Channel")
@@ -424,23 +425,23 @@ def pix_inj_calib_tdc_v_elec(h5_file):
     ax2.yaxis.set_minor_locator(AutoMinorLocator(5))
     ax2.grid()
 #     ax2.set_title("")
-    print "passing tdc full and zoom"
+    print "passing tdc >3000"
 
     fig3 = Figure()
     _ = FigureCanvas(fig3)
     fig3.clear()
     ax3 = fig3.add_subplot(111)
-    cmap1 = plt.cm.viridis
-    cmap1.set_under(color='white')
 #     print tdc_data['mu_tdc'][tdc_data['inj_elecs'] <= 3000]
-    h = ax3.hist2d(tdc_data['elecs'], tdc_data['mu_tdc'], bins=(
-        (max(tdc_data['elecs'] - min(tdc_data['elecs'])) / 100, max(tdc_data['mu_tdc']))), cmap=cmap1, vmin=0.00000001)
+    h = ax3.hist2d(tdc_data['elecs'], tdc_data['mu_tdc'],
+                   bins=((max(tdc_data['elecs'] - min(tdc_data['elecs'])) / 100, max(tdc_data['mu_tdc']))),
+                   range=((0, 10000), (0, 400)), cmap=cmap, vmin=1.5)
     fig3.colorbar(h[3], ax=ax3, pad=0.01)
     ax3.set_xlabel("Injected Electrons")
     ax3.set_ylabel("TDC Channel")
     ax3.xaxis.set_minor_locator(AutoMinorLocator(4))
     ax3.yaxis.set_minor_locator(AutoMinorLocator(5))
     ax3.grid()
+    print "passing tdc full"
 
     fig1.tight_layout()
     fig2.tight_layout()
@@ -459,8 +460,8 @@ def pixel_inj_calib_delay_vs_data(h5_file):
 #         cmap = plt.cm.viridis
 #         cmap.set_under(color='white')
         ax = fig.add_subplot(111)
-        h = ax.hist2d(tdc_data, tdc_delay, bins=((max(tdc_data) - min(tdc_data)) / 2,
-                                                 max(tdc_delay) - min(tdc_delay)), cmap=cmap, vmin=0.00000001)
+        h = ax.hist2d(tdc_data, tdc_delay, bins=((max(tdc_data) - min(tdc_data)) / 2, max(tdc_delay) - min(tdc_delay)),
+                      range=((0, 500), (0, 256)), cmap=cmap, vmin=1.5)
         fig.colorbar(h[3], ax=ax, pad=0.01)
         ax.set_title('TDC Data vs TDC Delay')
         ax.set_xlabel('TDC Data')
@@ -567,13 +568,13 @@ def thresh_pix_heatmap(h5_file_name):
 def tdac_heatmap(h5_file_name, en_mask_in=None, tdac_mask_in=None):
     if h5_file_name:
         with tb.open_file(h5_file_name, 'r') as in_file_h5:
-            tdac = in_file_h5.root.analysis_results.tdac_mask[:]
-            en_mask = in_file_h5.root.analysis_results.en_mask[:]
+            tdac = in_file_h5.root.scan_results.tdac_mask[:]
+            en_mask = in_file_h5.root.scan_results.en_mask[:]
     else:
         tdac = tdac_mask_in
         en_mask = en_mask_in
 
-    tdac[en_mask == False] = -1
+    tdac[en_mask == False] = 32
 
     fig1 = Figure()
     _ = FigureCanvas(fig1)
@@ -584,7 +585,8 @@ def tdac_heatmap(h5_file_name, en_mask_in=None, tdac_mask_in=None):
     ax1_main.set_ylabel('row')
 #     cmap = plt.cm.viridis
 #     cmap.set_under(color='white')
-    h1 = ax1_main.imshow(tdac, origin='lower', interpolation='none', cmap=cmap, vmin=-0.0001)
+    print tdac[tdac > 200]
+    h1 = ax1_main.imshow(tdac, origin='lower', cmap=cmap, vmin=-0.0001)
     cbar = fig1.colorbar(h1)
 
     fig2 = Figure()
@@ -621,8 +623,8 @@ def plot_tot_dist(h5_file_name):
         fig.clear()
         ax = fig.add_subplot(111)
         ax.hist(hit_data_tot, bins=np.arange(min(hit_data_tot) - 0.5, max(hit_data_tot) + 1.5, 1))
-        ax.set_title('ToT Dist.')
-        ax.set_xlabel('units of 25 ns')
+        ax.set_title('ToT Distribution')
+        ax.set_xlabel('Units of 25ns')
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.yaxis.set_minor_locator(AutoMinorLocator(4))
         print 'average tot: ', np.mean(hit_data_tot), ' max tot: ', max(hit_data_tot), " std tot: ", hit_data_tot.std()
@@ -632,7 +634,7 @@ def plot_tot_dist(h5_file_name):
         return fig
 
 
-def plot_lv1id_dist(h5_file_name):
+def plot_lv1id_dist(h5_file_name, col=None, row=None):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         hit_data = in_file_h5.root.hit_data[:]
         hit_data_lv1id = hit_data['lv1id']
@@ -641,13 +643,22 @@ def plot_lv1id_dist(h5_file_name):
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
 #         ax.hist(hit_data_lv1id, 20, range=(-1.5, 17.5))
-        bar_data, bins = np.histogram(hit_data_lv1id, max(hit_data_lv1id) + 1, range=(0, max(hit_data_lv1id) + 1))
+        if col or row:
+            hit_data_lv1id = hit_data['lv1id'][(hit_data['col'] == col) & (hit_data['row'] == row)]
+
+        bar_data, bins = np.histogram(hit_data_lv1id, 16, range=(0, 16))
         print bar_data
         bin_left = bins[:-1]
         ax.bar(left=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
-        ax.set_title('lv1id Dist')
+
+        if col or row:
+            ax.set_title('lv1id Dist, (%s, %s)' % (str(col), str(row)))
+        else:
+            ax.set_title('lv1id Dist')
+
+#         ax.set_yscale('log')
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+#         ax.yaxis.set_minor_locator(AutoMinorLocator(5))
         print 'passed lv1id average: %d' % hit_data_lv1id.mean()
         ax.grid()
         fig.tight_layout()
@@ -708,6 +719,24 @@ def tdac_plot_for_tdac_scan(h5_file_name):
     return fig
 
 
+def tlu_trigger_fillings_plot(h5_file_name):
+    #===========================================================================
+    # plot for the number of hits per trigger_id
+    # only to be used with the TLU
+    #===========================================================================
+    with tb.open_file(h5_file_name, 'r') as in_file_h5:
+        hit_data = in_file_h5.root.hit_data[:]
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        data = hit_data['trig_id']
+        bar_data, bins = np.histogram(data, max(data) + 1 - min(data), range=(min(data), max(data)))
+        bin_left = bins[:-1]
+        ax.plot(bin_left, bar_data, '.')
+        fig.tight_layout()
+        return fig
+
+
 def t_dac_plot(h5_file_name):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
         t_dac = in_file_h5.root.scan_results.tdac_mask[:]
@@ -726,6 +755,7 @@ def t_dac_plot(h5_file_name):
             #         if en_mask[i] == 1.0:
             T_Dac_pure = np.append(T_Dac_pure, t_dac[i])
     T_Dac_pure[T_Dac_pure < 0] = 0
+#     T_Dac_pure = T_Dac_pure[en_mask == True]
     T_Dac_pure = T_Dac_pure.astype(int)
     T_Dac_hist_y = np.bincount(T_Dac_pure)
     T_Dac_hist_x = np.arange(0, T_Dac_hist_y.size, 1)
@@ -752,7 +782,8 @@ def t_dac_plot(h5_file_name):
         lnspc = np.linspace(min(xTDAC) - 0.5, max(xTDAC) + 0.5, len(bins) - 1)
 #         print np.mean(xTDAC)
 #         print np.std(xTDAC)
-        popt, _ = optimize.curve_fit(analysis.gauss, lnspc, n, p0=(10, 16, 7), maxfev=1000)  # , bounds=(2, 30))
+        print max(n)
+        popt, _ = optimize.curve_fit(analysis.gauss, lnspc, n, p0=(300, 10, 7))
         y = analysis.gauss(lnspc, *popt)
         ax.plot(lnspc, y, 'r--')
         print "T-DAC fit: ", popt
@@ -815,21 +846,28 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
                 continue
             ret_pure = np.vstack((ret_pure, ret_pure1))
 
+        for i in range(s_meas.shape[1]):
+            #             s_meas[:, i][s_meas[:, i] > 105] = 0
+            pix = np.where(s_meas[:, i] > 105)
+            print pix
+            for j in pix:
+                s_meas[j, :] = 0
         ret_pure = ret_pure.astype(int)
-
-        pix_scan_hist = np.empty((s_meas.shape[1], repeat_command + 10))
+        max_val = np.amax(s_meas) + 10
+        pix_scan_hist = np.empty((s_meas.shape[1], max_val))
         for param in range(s_meas.shape[1]):
             h_count = np.bincount(s_meas[:, param])
-            h_count = h_count[: repeat_command + 10]
-            pix_scan_hist[param] = np.pad(h_count, (0, (repeat_command + 10) - h_count.shape[0]), 'constant')
+            h_count = h_count[: max_val]
+            pix_scan_hist[param] = np.pad(h_count, (0, max_val - h_count.shape[0]), 'constant')
 
+#             print np.where(s_meas[:, i] > 105)
         log_hist = np.log10(pix_scan_hist * 0.5)
         # print pix_scan_hist
-        log_hist[~np.isfinite(log_hist)] = 0
+        log_hist[~np.isfinite(pix_scan_hist)] = 0
         data = {
             'scan_param': np.ravel(np.indices(pix_scan_hist.shape)[0]),
             'count': np.ravel(np.indices(pix_scan_hist.shape)[1]),
-            'value': np.ravel(log_hist)  # log_hist for log plot
+            'value': np.ravel(pix_scan_hist * 0.5)  # log_hist for log plot
         }
 
         # single pixel plot
@@ -862,17 +900,17 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         fig2.clear()
         fig2.patch.set_facecolor("white")
         ax_thresHM = fig2.add_subplot(111)
-        ax_thresHM_2 = ax_thresHM.twiny()
+#         ax_thresHM_2 = ax_thresHM.twiny()
         ax_thresHM.set_title('Threshold curve overlay')
         ax_thresHM.set_xlabel('Electrons')
         ax_thresHM.set_ylabel('count')
-        ax_thresHM_2.set_xlabel('Volts')
+#         ax_thresHM_2.set_xlabel('Volts')
         ax_thresHM.xaxis.set_minor_locator(AutoMinorLocator(5))
         ax_thresHM.yaxis.set_minor_locator(AutoMinorLocator(4))
 #         cmap = plt.cm.viridis
 #         cmap.set_under(color='white')
-        h = ax_thresHM.hist2d(x=(data['scan_param'] * scan_range[2]) + scan_range[0], y=data['count'], weights=data['value'], bins=(
-            max(data['scan_param']), max(data['count'])), cmap=cmap, vmin=1e-10)
+        h = ax_thresHM.hist2d(x=(data['scan_param'] * scan_range[2]) + scan_range[0], y=data['count'], weights=data['value'],
+                              bins=(max(data['scan_param']), max(data['count']) / 2), cmap=cmap, vmin=1, norm=LogNorm())
         ax_thresHM.set_xticklabels(np.round(analysis.cap_fac() * 1000 * ax_thresHM.get_xticks()))
         fig2.colorbar(h[3], ax=ax_thresHM, pad=0.01)
         ax_thresHM.grid()
@@ -899,7 +937,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         bound = ax_ThVsPx.get_ybound()
         ax_ThVsPx_2.set_yticks(ticks)
         ax_ThVsPx_2.set_yticklabels(bound)
-        ax_ThVsPx.set_yticklabels((analysis.cap_fac() * ticks * 1000).round())
+        ax_ThVsPx.set_yticklabels((analysis.cap_fac() * ticks * 1000).astype(int))
 
         ax_ThVsPx_2.set_ylabel('Volts')
 
@@ -950,8 +988,8 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
                 lnspc_th = np.linspace(min(filtThres), max(filtThres), 150)
                 popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, thresh.mean(), thresh.std()), maxfev=1000)
                 y_th = analysis.gauss(lnspc_th, *popt_th)
-                ax_ThresDist.plot(lnspc_th, y_th, label=("Fl: %s Avg: %s \nSigma: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                         (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                ax_ThresDist.plot(lnspc_th, y_th, label=("Fl: %s $\mu$: %s \n$\sigma$: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
+                                                                                              (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
                 ax_ThresDist.legend(prop={'size': 7})
                 print "Threshold fit flavor ", flav, ": ", popt_th
                 print "Threshold fit (electrons)flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
@@ -967,8 +1005,8 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
                 lnspc_th = np.linspace(min(filtThres), max(filtThres), 100)
                 popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, np.asarray(n), p0=(20, mu_th, sigma_th), maxfev=1000)
                 y_th = analysis.gauss(lnspc_th, *popt_th)
-                ax_ThresDist.plot(lnspc_th, y_th, 'r--', label=("Avg: %s \nSigma: %s" % ((popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                         (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                ax_ThresDist.plot(lnspc_th, y_th, 'r--', label=("$\mu$: %s \n$\sigma$: %s" % ((popt_th[1] * analysis.cap_fac() * 1000).round(2),
+                                                                                              (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
                 ax_ThresDist.legend(loc=0)
                 print "Threshold fit: ", popt_th
                 print "Threshold fit (electrons): ", popt_th * analysis.cap_fac() * 1000
@@ -1001,7 +1039,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_noiseHM_2 = ax_noiseHM.twinx()
         ax_noiseHM.set_title('Noise by Pixel')
         ax_noiseHM.set_xlabel('pixel #')
-        ax_noiseHM.set_ylabel('Electrons')
+        ax_noiseHM.set_ylabel('ENC')
         h = ax_noiseHM.plot(x_noiseHM, y_noiseHM, '.')
         ax_noiseHM.xaxis.set_minor_locator(AutoMinorLocator(4))
         ax_noiseHM.yaxis.set_minor_locator(AutoMinorLocator(5))
@@ -1026,7 +1064,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_noiseDist = fig6.add_subplot(111)
         ax_noiseDist_2 = ax_noiseDist.twiny()
         ax_noiseDist.set_title('Noise Distribution without 0 and 0.02 V entries', y=1.10)
-        ax_noiseDist.set_xlabel('Electrons')
+        ax_noiseDist.set_xlabel('ENC')
         # ax_noiseDist.set_ylabel('pixel number')
         n_n, bins_n, patches_n = ax_noiseDist.hist(filtNoiseDist, bins=100)
         try:
@@ -1038,7 +1076,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
             y_n = analysis.gauss(lnspc_n, *popt_n)
             print "Noise Gaussian: ", popt_n
             ax_noiseDist.plot(lnspc_n, y_n, "r--")
-            ax_noiseDist.plot(lnspc_n, y_n, 'r--', label=("Avg: %s Sigma: %s" %
+            ax_noiseDist.plot(lnspc_n, y_n, 'r--', label=("$\mu$: %s \n$\sigma$: %s" %
                                                           (popt_n[1] * analysis.cap_fac() * 1000, popt_n[2] * analysis.cap_fac() * 1000)))
             ax_noiseDist.legend(loc=0)
 
@@ -1083,8 +1121,8 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
                 lnspc_th = np.linspace(min(ax_noiseDist_fl), max(ax_noiseDist_fl), 150)
                 popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, noise.mean(), noise.std()), maxfev=1000)
                 y_th = analysis.gauss(lnspc_th, *popt_th)
-                ax_noiseDist_fl.plot(lnspc_th, y_th, label=("Fl: %s Avg: %s \nSigma: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                            (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                ax_noiseDist_fl.plot(lnspc_th, y_th, label=("Fl: %s $\mu$: %s \n$\sigma$: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
+                                                                                                 (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
                 ax_noiseDist_fl.legend(prop={'size': 7})
     #             print "Noise fit flavor ", flav, ": ", popt_th
                 print "Noise fit (electrons) flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
@@ -1115,13 +1153,13 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         # ax_chisq.set_title('chisq vs pixel')
         # ax_chisq.plot(np.asarray(range(len(chiX))), chiX, '.')
         print "filtered chisq: (0. < Chi2 < 100): ", len(chiX)
-        print "average chisq: ", chi2long.mean()
+        print "average chisq: ", sum(chi2long) / float(len(chi2long))
 
         fig8 = Figure()
         _ = FigureCanvas(fig8)
         fig8.clear()
         ax_hist_chi = fig8.add_subplot(111)
-        ax_hist_chi.set_title('filtered chi squared histogram')
+        ax_hist_chi.set_title('filtered chi squared mean: %s number: %s' % (sum(chi2long) / float(len(chi2long)), len(chiX)))
         ax_hist_chi.hist(chiX, bins=200, range=(0, 100))
         ax_hist_chi.grid()
 
