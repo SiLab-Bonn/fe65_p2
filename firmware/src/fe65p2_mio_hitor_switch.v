@@ -66,7 +66,7 @@ module fe65p2_mio (
     input wire FCLK_IN, // 48MHz
 
     //full speed 
-    inout wire [15:0] BUS_DATA,
+    inout wire [7:0] BUS_DATA,
     input wire [15:0] ADD,
     input wire RD_B,
     input wire WR_B,
@@ -247,10 +247,8 @@ module fe65p2_mio (
     assign LD = GPIO_OUT[7];
     wire EN_HITOR_TRIGGER_CONF;
     assign EN_HITOR_TRIGGER_CONF = GPIO_OUT[8];
-    wire EXT_TRIGGER_ENABLE_CONF;
-    assign EXT_TRIGGER_ENABLE_CONF = GPIO_OUT[9];
 
-    
+    //assign EN_HIT_OR_TRIGGER = GPIO_OUT[8];
     //assign EN_HIT_OR_TRIGGER = 1;
     
     wire SCLK, SDI, SDO, SEN, SLD;
@@ -375,7 +373,7 @@ module fe65p2_mio (
     wire [31:0] TLU_FIFO_DATA;
     wire [31:0] TIMESTAMP;
     
-    wire TLU_BUSY, TLU_CLOCK;
+   wire TLU_BUSY, TLU_CLOCK;
     wire TDC_TRIG_OUT;
     tlu_controller #(
          .BASEADDR(TLU_BASEADDR),
@@ -398,12 +396,12 @@ module fe65p2_mio (
          
          .FIFO_PREEMPT_REQ(TLU_FIFO_PEEMPT_REQ),
          
-         .TRIGGER({8'b0}),
+         .TRIGGER({7'b0,TDC_TRIG_OUT}),
          .TRIGGER_VETO({7'b0,FIFO_FULL}),
          
          .TRIGGER_ACKNOWLEDGE(TRIGGER_ACKNOWLEDGE_FLAG),
          .TRIGGER_ACCEPTED_FLAG(TRIGGER_ACCEPTED_FLAG),
-         .EXT_TRIGGER_ENABLE(1'b1),
+         //.EXT_TRIGGER_ENABLE(TLU_EXT_TRIGGER_ENABLE)
          
          .TLU_TRIGGER(RJ45_TRIGGER),
          .TLU_RESET(RJ45_RESET),

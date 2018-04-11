@@ -9,10 +9,8 @@ transfer_layer:
   - name  : intf
     type  : SiUsb
     init:
-#      bit_file: ../firmware/ise/fe65p2_mio_pulser.bit
-      bit_file: ../firmware/ise/fe65p2_mio.bit
-#      bit_file: ../firmware/ise/fe65p2_mio_ext_trig1.bit
-#      bit_file: ../firmware/ise/fe65p2_mio_ext_0.bit
+      bit_file: ../firmware/ise/fe65p2_mio_pulser.bit
+#      bit_file: ../firmware/ise/fe65p2_mio.bit
 #      bit_file: ../firmware/ise/fe65p2_mio_TLU.bit
       avoid_download: True
       #board_id: 216
@@ -29,7 +27,7 @@ hw_drivers:
     type      : gpio
     interface : intf
     base_addr : 0x10000
-    size      : 16
+    size      : 8
 
   - name      : spi
     type      : spi
@@ -73,15 +71,15 @@ hw_drivers:
     base_addr : 0x18000
     base_data_addr: 0x1000000000000
     
-  - name      : TLU_veto_pulse
-    type      : pulse_gen
-    interface : intf
-    base_addr : 0x19500
-
-  - name      : TLU
-    type      : tlu
-    interface : intf
-    base_addr : 0x19100
+#  - name      : TLU_veto_pulse
+#    type      : pulse_gen
+#    interface : intf
+#    base_addr : 0x19500
+#
+#  - name      : TLU
+#    type      : tlu
+#    interface : intf
+#    base_addr : 0x19100
     
   - name        : ntc
     type        : NTCRegister
@@ -94,7 +92,7 @@ registers:
   - name        : control
     type        : StdRegister
     hw_driver   : gpio
-    size        : 16
+    size        : 8
     fields:
       - name    : RESET
         size    : 2
@@ -117,13 +115,6 @@ registers:
       - name    : LD
         size    : 1
         offset  : 7
-      - name    : EN_HITOR_TRIGGER
-        size    : 1
-        offset  : 8
-#      - name    : EXT_TRIGGER_ENABLE
-#        size    : 1
-#        offset  : 9
-        
 #      - name    : INV_BX_CLK
 #        size    : 1
 #        offset  : 8
@@ -238,3 +229,4 @@ registers:
     hw_driver   : GPAC
     arg_names   : [ value ]
     arg_add     : { 'channel': 'INJ1'}
+

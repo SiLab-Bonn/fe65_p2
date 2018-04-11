@@ -1,10 +1,4 @@
-/**
- * ------------------------------------------------------------
- * Copyright (c) SILAB , Physics Institute of Bonn University 
- * ------------------------------------------------------------
- */
-
-`timescale 1ps / 1ps
+timescale 1ps / 1ps
 
 `include "clk_gen.v"
 
@@ -66,7 +60,7 @@ module fe65p2_mio (
     input wire FCLK_IN, // 48MHz
 
     //full speed 
-    inout wire [15:0] BUS_DATA,
+    inout wire [7:0] BUS_DATA,
     input wire [15:0] ADD,
     input wire RD_B,
     input wire WR_B,
@@ -146,13 +140,13 @@ module fe65p2_mio (
     localparam FIFO_HIGHADDR = 16'h9000-1;
  
     localparam TDC_BASEADDR = 16'h9000;
-    localparam TDC_HIGHADDR = 16'h9100-1;
+    localparam TDC_HIGHADDR = 16'ha000-1;
      
-    localparam TLU_BASEADDR = 16'h9100;
-    localparam TLU_HIGHADDR = 16'h9500-1;
+    localparam TLU_BASEADDR = 16'ha000;
+    localparam TLU_HIGHADDR = 16'hb000-1;
      
-    localparam PULSE_TLU_VETO_BASEADDR = 16'h9500;
-    localparam PULSE_TLU_VETO_HIGHADDR = 16'h9a00-1;
+    localparam PULSE_TLU_VETO_BASEADDR = 16'hb000;
+    localparam PULSE_TLU_VETO_HIGHADDR = 16'hc000-1;
      
     // ------- RESRT/CLOCK  ------- //
 
@@ -214,19 +208,19 @@ module fe65p2_mio (
     
 
     // ------- MODULES  ------- //
-    wire [15:0] GPIO_OUT;
+    wire [7:0] GPIO_OUT;
     gpio 
     #( 
         .BASEADDR(GPIO_BASEADDR), 
         .HIGHADDR(GPIO_HIGHADDR),
-        .IO_WIDTH(16),
-        .IO_DIRECTION(16'hffff)
+        .IO_WIDTH(8),
+        .IO_DIRECTION(8'hff)
     ) i_gpio
     (
         .BUS_CLK(BUS_CLK),
         .BUS_RST(BUS_RST),
         .BUS_ADD(BUS_ADD),
-        .BUS_DATA(BUS_DATA[15:0]),
+        .BUS_DATA(BUS_DATA[7:0]),
         .BUS_RD(BUS_RD),
         .BUS_WR(BUS_WR),
         .IO(GPIO_OUT)
@@ -245,12 +239,8 @@ module fe65p2_mio (
     assign GATE_EN_PIX_SR_CNFG = GPIO_OUT[4];
     assign DISABLE_LD = GPIO_OUT[5];
     assign LD = GPIO_OUT[7];
-    wire EN_HITOR_TRIGGER_CONF;
-    assign EN_HITOR_TRIGGER_CONF = GPIO_OUT[8];
-    wire EXT_TRIGGER_ENABLE_CONF;
-    assign EXT_TRIGGER_ENABLE_CONF = GPIO_OUT[9];
-
     
+    //assign EN_HIT_OR_TRIGGER = GPIO_OUT[8];
     //assign EN_HIT_OR_TRIGGER = 1;
     
     wire SCLK, SDI, SDO, SEN, SLD;
@@ -347,7 +337,7 @@ module fe65p2_mio (
         .BUS_WR(BUS_WR),
     
         .PULSE_CLK(~CLK40),
-        .EXT_START(TESTHIT | DUT_INJ | (HIT_OR_TDC_OUT & EN_HITOR_TRIGGER_CONF) | TRIGGER_ACCEPTED_FLAG),
+        .EXT_START(TESTHIT | DUT_INJ | HIT_OR_TDC_OUT | TRIGGER_ACCEPTED_FLAG),
         .PULSE(DUT_TRIGGER)
     );
         
@@ -375,7 +365,7 @@ module fe65p2_mio (
     wire [31:0] TLU_FIFO_DATA;
     wire [31:0] TIMESTAMP;
     
-    wire TLU_BUSY, TLU_CLOCK;
+   wire TLU_BUSY, TLU_CLOCK;
     wire TDC_TRIG_OUT;
     tlu_controller #(
          .BASEADDR(TLU_BASEADDR),
@@ -398,14 +388,14 @@ module fe65p2_mio (
          
          .FIFO_PREEMPT_REQ(TLU_FIFO_PEEMPT_REQ),
          
-         .TRIGGER({8'b0}),
+         .TRIGGER({7'b0,TDC_TRIG_OUT}),
          .TRIGGER_VETO({7'b0,FIFO_FULL}),
          
          .TRIGGER_ACKNOWLEDGE(TRIGGER_ACKNOWLEDGE_FLAG),
          .TRIGGER_ACCEPTED_FLAG(TRIGGER_ACCEPTED_FLAG),
-         .EXT_TRIGGER_ENABLE(1'b1),
+         //.EXT_TRIGGER_ENABLE(TLU_EXT_TRIGGER_ENABLE)
          
-         .TLU_TRIGGER(RJ45_TRIGGER),
+         .TLU_TRIGGER(TDC_TRIG_OUT),
          .TLU_RESET(RJ45_RESET),
          .TLU_BUSY(TLU_BUSY),
          .TLU_CLOCK(TLU_CLOCK),

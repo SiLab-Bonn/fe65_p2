@@ -189,8 +189,8 @@ NET "LEMO_RX<2>"                                LOC=N2        |    IOSTANDARD = 
 NET "LEMO_RX<1>"                                LOC=P1        |    IOSTANDARD = LVCMOS33;
 NET "LEMO_RX<0>"                                LOC=P3        |    IOSTANDARD = LVCMOS33;
 
-NET "RJ45_RESET"                               LOC=L5        |    IOSTANDARD = LVCMOS33;
-NET "RJ45_TRIGGER"                             LOC=M1        |    IOSTANDARD = LVCMOS33;
+#NET "RJ45_RESET"                               LOC=L5        |    IOSTANDARD = LVCMOS33;
+#NET "RJ45_TRIGGER"                             LOC=M1        |    IOSTANDARD = LVCMOS33;
 
 NET "LEMO_TX<2>"                                LOC=R3        |    IOSTANDARD = LVCMOS33;
 NET "LEMO_TX<1>"                                LOC=M5        |    IOSTANDARD = LVCMOS33;
@@ -399,7 +399,7 @@ NET "SCL" LOC = D14;
 #NET "ADC_OUT_N[3]"  LOC = H1 | IOSTANDARD = LVDS_25 | DIFF_TERM = TRUE;
 
 NET "DUT_CLK_DATA"  LOC = A15 | SLEW = FAST | DRIVE = 24; #DOUT0
-NET "DUT_CLK_BX"  LOC = B13 | SLEW = FAST | DRIVE = 24; #DOUT1
+NET "DUT_CLK_BX"  LOC = B13; #DOUT1
 NET "DUT_TRIGGER"  LOC = A14; #DOUT2
 NET "DUT_CLK_CNFG"  LOC = C11; #DOUT3
 NET "DUT_SI_CNFG"  LOC = A12; #DOUT4
@@ -430,5 +430,4 @@ NET "DUT_OUT_DATA"  LOC = C7; #DIN8_LVDS0
 NET "DUT_HIT_OR"  LOC = A3; #DIN10_LVDS2
 #NET "DIN11_LVDS2"  LOC = A2; #DIN11_LVDS3
 
-NET "DUT_INJ"  LOC = "B5"; #INJ_STRB
-
+NET "DUT_INJ" LOC = "B5"; #INJ_STRB

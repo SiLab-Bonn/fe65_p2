@@ -88,8 +88,7 @@ class FifoReadout(object):
 
     def start(self, callback=None, errback=None, reset_rx=False, reset_sram_fifo=False, clear_buffer=False, fill_buffer=False, no_data_timeout=None):
         if self._is_running:
-            raise RuntimeError(
-                'Readout already running: use stop() before start()')
+            raise RuntimeError('Readout already running: use stop() before start()')
         self._is_running = True
 #         logging.info('Starting FIFO readout...')
         self.callback = callback
@@ -103,8 +102,7 @@ class FifoReadout(object):
         else:
             fifo_size = self.dut['fifo']['FIFO_SIZE']
             if fifo_size != 0:
-                logging.warning(
-                    'SRAM FIFO not empty when starting FIFO readout: size = %i', fifo_size)
+                logging.warning('SRAM FIFO not empty when starting FIFO readout: size = %i', fifo_size)
         self._words_per_read.clear()
         if clear_buffer:
             self._data_deque.clear()

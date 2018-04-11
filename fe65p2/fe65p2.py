@@ -17,6 +17,9 @@ import bitarray
 
 from numba import jit, njit
 
+TRIGGER_ID = 0x80000000
+TRG_MASK = 0x7FFFFFFF
+
 
 @njit
 def _interpret_raw_data(data, pix_data):
@@ -103,6 +106,101 @@ def _interpret_raw_data(data, pix_data):
     return pix_data[:irec]
 
 
+def _interpret_raw_data_tlu(data, pix_data):
+    irec = np.uint32(0)
+    prev_bcid = np.uint8(0)
+    bcid = np.uint32(0)
+    lv1id = np.uint8(0)
+    trigg_id = np.uint32(0)
+
+    col = np.uint8(0)
+    row = np.uint8(0)
+    rowp = np.uint8(0)
+    totB = np.uint8(0)
+    totT = np.uint8(0)
+
+    trig_id_pos = np.where(data & TRIGGER_ID)
+    trig_id_list = data[trig_id_pos] & TRG_MASK
+
+    for inx in range(data.shape[0]):
+        if (data[inx] & TRIGGER_ID):
+            trigg_id = (data[inx] & TRG_MASK)
+
+        elif (data[inx] & 0x800000):
+            bcid = data[inx] & 0x7FFFFF
+            if(prev_bcid + 1 != bcid):
+                lv1id = 0
+            else:
+                lv1id += 1
+            prev_bcid = bcid
+        else:
+            col = (data[inx] & 0b111100000000000000000) >> 17
+            row = (data[inx] & 0b11111100000000000) >> 11
+            rowp = (data[inx] & 0b10000000000) >> 10
+            totB = (data[inx] & 0b11110000) >> 4
+            totT = (data[inx] & 0b1111)
+
+            # print col, row, rowp, totT, totB
+
+            #| rowp = 1 | rowp = 0 |
+            #| totL_T   | totR_T   |
+            #| totL_B   | totR_B   |
+
+            if rowp == 1:
+                if(totT != 15):
+                    pix_data[irec].trig_id = trigg_id
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2 + 1
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2)
+                    pix_data[irec].col = col * 4 + (row / 32) * 2
+                    pix_data[irec].tot = totT
+                    irec += 1
+
+                if(totB != 15):
+                    pix_data[irec].trig_id = trigg_id
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2 + 1)
+
+                    pix_data[irec].col = col * 4 + (row / 32) * 2
+
+                    pix_data[irec].tot = totB
+                    irec += 1
+            else:
+                if(totT != 15):
+                    pix_data[irec].trig_id = trigg_id
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2 + 1
+                    else:
+                        pix_data[irec].row = 63 - (row % 32) * 2
+                    pix_data[irec].col = col * 4 + (row / 32) * 2 + 1
+                    pix_data[irec].tot = totT
+                    irec += 1
+
+                if(totB != 15):
+                    pix_data[irec].trig_id = trigg_id
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2 + 1)
+
+                    pix_data[irec].col = col * 4 + (row / 32) * 2 + 1
+                    pix_data[irec].tot = totB
+                    irec += 1
+
+    return pix_data[:irec]
+
+
 class fe65p2(Dut):
 
     def __init__(self, conf=None):
@@ -133,6 +231,7 @@ class fe65p2(Dut):
         # wait for finish
         while not self['global_conf'].is_ready:
             pass
+        time.sleep(0.1)
 
     def mask_sr(self, mask):
         """
@@ -238,6 +337,51 @@ class fe65p2(Dut):
         self.write_global()
         self['global_conf']['InjEnLd'] = 0b0
 
+    def write_tune_mask_2(self, mask):
+        mask_in = np.copy(mask)
+        mask_above_15 = np.full((64, 64), 0, dtype=int)
+        mask_below_15 = np.full((64, 64), 0, dtype=int)
+        mask_above_15[mask_in > 15] = mask_in[mask_in > 15]
+        mask_below_15[mask_in <= 15] = mask_in[mask_in <= 15]
+        mask_above_15_2 = (mask_above_15 - 31) * -1
+        mask_above_15_2[mask_above_15_2 == 31] = 0
+
+        mask_out = mask_below_15 + mask_above_15_2
+        bits_out = np.unpackbits(mask_out.astype(np.uint8))
+        mask_bits_array = np.reshape(bits_out, (64, 64, 8))
+
+        print mask_bits_array.shape
+#         print mask_bits_array
+
+        bits_out_list = [bin(int(x)) for x in mask_out.reshape(4096)]
+        bin_full = np.asarray(bits_out_list)
+        np.reshape(bin_full, (64, 64))
+        print bin_full
+        print bin_full.shape
+
+        bits_out = np.full((64, 64), 0b0)
+        # this makes a list with the order but it does not
+        bin_above_15 = [bin(int(x)) for x in mask_above_15_2.reshape(4096)]
+        bin_above_15 = np.asarray(bin_above_15)
+#         print bin_above_15.shape
+#         print bin_above_15
+#         bin_below_15 = [bin(int(x)) for x in mask_below_15.reshape(4096)]
+
+#         bits_out = bin_below_15 + bin_above_15
+#         bits_out_arr = np.asarray(bits_out)
+#         np.reshape(bits_out_arr, (64, 64))
+#         print bits_out_arr
+        self.write_pixel(mask_in)
+        self['global_conf']['TDacLd'] = bin_full
+        self.write_global()
+        self['global_conf']['TDacLd'] = 0b1111
+
+        sign_bit_out = [1 for x in bin_above_15 if x != 0b0]
+        self.write_pixel(sign_bit_out)
+        self['global_conf']['SignLd'] = 1
+        self.write_global()
+        self['global_conf']['SignLd'] = 0
+
     def write_tune_mask(self, mask):
             # 0  -> Sign = 1, TDac = 15 1111(lowest)
             # ...
@@ -270,12 +414,11 @@ class fe65p2(Dut):
         self['global_conf']['SignLd'] = 0
 
     def interpret_raw_data(self, raw_data, meta_data=[]):
-        data_type = {'names': ['bcid', 'col', 'row', 'tot', 'lv1id', 'scan_param_id'], 'formats': [
-            'uint32', 'uint8', 'uint8', 'uint8', 'uint8', 'uint16']}
+        data_type = {'names': ['bcid', 'col', 'row', 'tot', 'lv1id', 'scan_param_id'],
+                     'formats': ['uint32', 'uint8', 'uint8', 'uint8', 'uint8', 'uint16']}
         ret = []
         if len(meta_data):
-            param, index = np.unique(
-                meta_data['scan_param_id'], return_index=True)
+            param, index = np.unique(meta_data['scan_param_id'], return_index=True)
             index = index[1:]
             index = np.append(index, meta_data.shape[0])
             index = index - 1
@@ -292,6 +435,37 @@ class fe65p2(Dut):
         else:
             pix_data = np.recarray((raw_data.shape[0] * 2), dtype=data_type)
             ret = _interpret_raw_data(raw_data, pix_data)
+        return ret
+
+    def interpret_raw_data_tlu(self, raw_data, meta_data=[]):
+        data_type = {'names': ['bcid', 'col', 'row', 'tot', 'lv1id', 'scan_param_id', 'trig_id'],
+                     'formats': ['uint32', 'uint8', 'uint8', 'uint8', 'uint8', 'uint16', 'uint32']}
+        ret = []
+
+        # model after bdaq, do i need the separate function?
+        # grab tlu word and save it like the scan parameter id
+        # need to add the case of a tlu word, then save it for the next section of triggers, pass in number of triggers?
+
+        if len(meta_data):
+            param, index = np.unique(meta_data['scan_param_id'], return_index=True)
+            index = index[1:]
+            index = np.append(index, meta_data.shape[0])
+            index = index - 1
+            stops = meta_data['index_stop'][index]
+            split = np.split(raw_data, stops)
+
+            for i in range(len(split[:-1])):
+                # print param[i], stops[i], len(split[i]), split[i]
+                int_pix_data = self.interpret_raw_data_tlu(split[i])
+                int_pix_data['scan_param_id'][:] = param[i]
+                if len(ret):
+                    ret = np.hstack((ret, int_pix_data))
+                else:
+                    ret = int_pix_data
+        else:
+            pix_data = np.recarray((raw_data.shape[0] * 2), dtype=data_type)
+            ret = _interpret_raw_data_tlu(raw_data, pix_data)
+
         return ret
 
     def power_up(self):
@@ -339,6 +513,32 @@ class fe65p2(Dut):
         self['global_conf']['vthin2Dac'] = 0
         self['global_conf']['preCompVbnDac'] = 50
         self['global_conf']['PrmpVbpDac'] = 80
+        self.write_global()
+        time.sleep(0.2)
+
+    def scan_setup(self):
+        self['control']['RESET'] = 0b01
+        self['control']['DISABLE_LD'] = 0
+        self['control']['PIX_D_CONF'] = 0
+        self['control'].write()
+
+        self['control']['CLK_OUT_GATE'] = 1
+        self['control']['CLK_BX_GATE'] = 1
+        self['control'].write()
+        time.sleep(0.1)
+
+        self['control']['RESET'] = 0b11
+        self['control'].write()
+
+        self.dut.start_up()
+
+        self['global_conf']['OneSr'] = 1
+
+        self['global_conf']['TestHit'] = 0
+        self['global_conf']['SignLd'] = 0
+        self['global_conf']['InjEnLd'] = 0
+        self['global_conf']['TDacLd'] = 0
+        self['global_conf']['PixConfLd'] = 0
         self.write_global()
 
     def start_up(self):

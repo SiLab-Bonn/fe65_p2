@@ -110,8 +110,7 @@ class ScanBase(object):
         self.fifo_readout.print_readout_status()
 
         self.meta_data_table.attrs.power_status = yaml.dump(pw)
-        self.meta_data_table.attrs.dac_status = yaml.dump(
-            self.dut.dac_status())
+        self.meta_data_table.attrs.dac_status = yaml.dump(self.dut.dac_status())
         self.meta_data_table.attrs.vth1 = yaml.dump(self.final_vth1)
 
         # temperature
@@ -172,6 +171,20 @@ class ScanBase(object):
         self.scan_param_id = scan_param_id
         self.fifo_readout.start(reset_sram_fifo=reset_sram_fifo, fill_buffer=fill_buffer, clear_buffer=clear_buffer,
                                 callback=callback, errback=errback, no_data_timeout=no_data_timeout)
+#         self.start_tlu_triggers()
+
+    def start_tlu_triggers(self):
+        #         self.dut.set_for_configuration()
+        self.dut['control']['EXT_TRIGGER_ENABLE'] = 1
+        self.dut['control'].write()
+        self.dut['TLU'].TRIGGER_ENABLE = 1
+
+    def stop_tlu_triggers(self):
+        self.dut['TLU'].TRIGGER_ENABLE = 0
+        #         self.dut.set_for_configuration()
+        self.dut['control']['EXT_TRIGGER_ENABLE'] = 0
+        self.dut['control'].write()
+        print self.dut['control']['EXT_TRIGGER_ENABLE']
 
     def set_local_config(self, vth1=None, **kwargs):
 
@@ -187,6 +200,7 @@ class ScanBase(object):
         self.dut['global_conf']['compVbnDac'] = self._kwargs['compVbnDac']
         self.dut['global_conf']['preCompVbnDac'] = self._kwargs['preCompVbnDac']
         self.dut.write_global()
+#         time.sleep(0.7)
 
     def handle_data(self, data_tuple):
         '''Handling of the data.
