@@ -153,6 +153,7 @@ module fe65p2_mio (
      
     localparam PULSE_TLU_VETO_BASEADDR = 16'h9500;
     localparam PULSE_TLU_VETO_HIGHADDR = 16'h9a00-1;
+
      
     // ------- RESRT/CLOCK  ------- //
 
@@ -399,6 +400,7 @@ module fe65p2_mio (
          .FIFO_PREEMPT_REQ(TLU_FIFO_PEEMPT_REQ),
          
          .TRIGGER({8'b0}),
+         //.TRIGGER({7'b0,TDC_TRIG_OUT}),
          .TRIGGER_VETO({7'b0,FIFO_FULL}),
          
          .TRIGGER_ACKNOWLEDGE(TRIGGER_ACKNOWLEDGE_FLAG),
