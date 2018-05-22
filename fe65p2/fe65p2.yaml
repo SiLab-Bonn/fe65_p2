@@ -9,11 +9,11 @@ transfer_layer:
   - name  : intf
     type  : SiUsb
     init:
-#      bit_file: ../firmware/ise/fe65p2_mio_pulser.bit
-      bit_file: ../firmware/ise/fe65p2_mio.bit
+      bit_file: ../firmware/ise/fe65p2_mio_pulser.bit
+#      bit_file: ../firmware/ise/fe65p2_mio.bit
 #      bit_file: ../firmware/ise/fe65p2_mio_ext_trig1.bit
 #      bit_file: ../firmware/ise/fe65p2_mio_ext_0.bit
-#      bit_file: ../firmware/ise/fe65p2_mio_TLU.bit
+#      bit_file: ../firmware/ise/fe65p2_mio_tlu.bit
       avoid_download: True
       #board_id: 216
 
@@ -73,15 +73,15 @@ hw_drivers:
     base_addr : 0x18000
     base_data_addr: 0x1000000000000
     
-  - name      : TLU_veto_pulse
-    type      : pulse_gen
-    interface : intf
-    base_addr : 0x19500
-
-  - name      : TLU
-    type      : tlu
-    interface : intf
-    base_addr : 0x19100
+#  - name      : TLU_veto_pulse
+#    type      : pulse_gen
+#    interface : intf
+#    base_addr : 0x19500
+#
+#  - name      : TLU
+#    type      : tlu
+#    interface : intf
+#    base_addr : 0x19100
     
   - name        : ntc
     type        : NTCRegister
@@ -117,9 +117,9 @@ registers:
       - name    : LD
         size    : 1
         offset  : 7
-      - name    : EN_HITOR_TRIGGER
-        size    : 1
-        offset  : 8
+#      - name    : EN_HITOR_TRIGGER
+#        size    : 1
+#        offset  : 8
 #      - name    : EXT_TRIGGER_ENABLE
 #        size    : 1
 #        offset  : 9

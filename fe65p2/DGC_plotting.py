@@ -659,7 +659,7 @@ def plot_lv1id_dist(h5_file_name, col=None, row=None):
 #         ax.set_yscale('log')
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
 #         ax.yaxis.set_minor_locator(AutoMinorLocator(5))
-        print 'passed lv1id average: %d' % hit_data_lv1id.mean()
+        print 'passed lv1id average: ', hit_data_lv1id.mean(), 'sum: ', np.sum(bar_data)
         ax.grid()
         fig.tight_layout()
         return fig
@@ -730,6 +730,7 @@ def tlu_trigger_fillings_plot(h5_file_name):
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         data = hit_data['trig_id']
+
         bar_data, bins = np.histogram(data, max(data) + 1 - min(data), range=(min(data), max(data)))
         bin_left = bins[:-1]
         ax.plot(bin_left, bar_data, '.')

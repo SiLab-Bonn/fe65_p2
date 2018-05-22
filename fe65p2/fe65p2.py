@@ -14,8 +14,7 @@ import os
 import numpy as np
 import time
 import bitarray
-
-from numba import jit, njit
+from numba import njit
 
 TRIGGER_ID = 0x80000000
 TRG_MASK = 0x7FFFFFFF
@@ -106,6 +105,7 @@ def _interpret_raw_data(data, pix_data):
     return pix_data[:irec]
 
 
+@njit
 def _interpret_raw_data_tlu(data, pix_data):
     irec = np.uint32(0)
     prev_bcid = np.uint8(0)
@@ -118,9 +118,6 @@ def _interpret_raw_data_tlu(data, pix_data):
     rowp = np.uint8(0)
     totB = np.uint8(0)
     totT = np.uint8(0)
-
-    trig_id_pos = np.where(data & TRIGGER_ID)
-    trig_id_list = data[trig_id_pos] & TRG_MASK
 
     for inx in range(data.shape[0]):
         if (data[inx] & TRIGGER_ID):
@@ -212,6 +209,19 @@ class fe65p2(Dut):
         logging.info("Loading configuration file from %s" % conf)
 
         conf = self._preprocess_conf(conf)
+
+#         if socket_address and not context:
+#             logging.info('Creating ZMQ context')
+#             context = zmq.Context()
+#
+#         if socket_address and context:
+#             logging.info('Creating socket connection to server %s', socket_address)
+#             self.socket = context.socket(zmq.PUB)  # publisher socket
+#             self.socket.bind(socket_address)
+#             send_meta_data(self.socket, None, name='Reset')  # send reset to indicate a new scan
+#         else:
+#             self.socket = None
+
         super(fe65p2, self).__init__(conf)
 
     def init(self):

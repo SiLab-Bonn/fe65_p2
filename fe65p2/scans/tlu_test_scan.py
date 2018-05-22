@@ -129,12 +129,12 @@ class TLU_Test_Scan(ScanBase):
 #         self.dut['inj'].set_repeat(0)
 #         self.dut['inj'].set_en(True)
 
-        self.dut['trigger'].set_delay(400)
+        self.dut['trigger'].set_delay(356)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
 
-        self.dut['TLU_veto_pulse'].set_delay(2000)
+        self.dut['TLU_veto_pulse'].set_delay(451)
         self.dut['TLU_veto_pulse'].set_width(16)
         self.dut['TLU_veto_pulse'].set_repeat(1)
         self.dut['TLU_veto_pulse'].set_en(True)
@@ -163,8 +163,8 @@ class TLU_Test_Scan(ScanBase):
 
             with self.readout(scan_param_id=param_num):
                 self.dut['TLU'].TRIGGER_ENABLE = 1
-                for i in range(2):
-                    time.sleep(0.1)
+                for i in range(15):
+                    time.sleep(10.0)
                     print i + 1, self.fifo_readout.get_record_count()
 
                 param_num += 1
@@ -237,9 +237,9 @@ class TLU_Test_Scan(ScanBase):
         lv1id_plot = DGC_plotting.plot_lv1id_dist(h5_filename)
         pp.savefig(lv1id_plot, layout="tight")
         plt.clf()
-        trig_plot = DGC_plotting.tlu_trigger_fillings_plot(h5_filename)
-        pp.savefig(trig_plot, layout="tight")
-        plt.clf()
+#         trig_plot = DGC_plotting.tlu_trigger_fillings_plot(h5_filename)
+#         pp.savefig(trig_plot, layout="tight")
+#         plt.clf()
         occ_plot = DGC_plotting.plot_occupancy(h5_filename)
         pp.savefig(occ_plot, layout="tight")
         plt.clf()

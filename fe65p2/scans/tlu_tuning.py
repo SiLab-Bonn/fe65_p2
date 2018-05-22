@@ -44,6 +44,65 @@ BCID_ID = 0x800000
 BCID_MASK = 0x7FFFFF
 
 
+def trig_id_inc_rate(data, trigs):
+    logging.info("\nTLU trigger word increase rate calculation\n")
+    data = np.reshape(data, data.shape[0])
+    trig_id_pos = np.where(data & TRIGGER_ID)
+    trig_id_list = data[trig_id_pos] & TRG_MASK
+
+    trig_id_diffs = np.diff(trig_id_list).astype(int)
+    try:
+        trig_diff_hist = np.bincount(trig_id_diffs)
+        bin_positions_trig = np.arange(trig_diff_hist.shape[0])
+        trig_mean = np.average(trig_diff_hist, weights=bin_positions_trig) * bin_positions_trig.sum() / np.nansum(trig_diff_hist)
+#             print "trig diff", trig_diff_hist
+#             print "max:", max(trig_id_diffs), "max_position:", np.argmax(trig_id_diffs)
+#             print "avg:", np.mean(trig_id_diffs)
+#             print trig_diff_hist[1]
+        perc_w_1_bw_triggs = (float(trig_diff_hist[1]) / float(trigs)) * 100.
+#             print "% with step of 1:", perc_w_1_bw_triggs
+        logging.info("trig mean:%s trig std: %s \ntrig max: %s trig max position: %s", str(trig_mean), str(np.std(trig_id_diffs)),
+                     str(max(trig_id_diffs)), str(np.argmax(trig_id_diffs)))
+        logging.info(trig_diff_hist)
+        logging.info(perc_w_1_bw_triggs)
+    except:
+        #             print trig_id_diffs[trig_id_diffs < 0]
+        logging.info("negative values in the trigger differences!!!")
+        trig_id_diffs[trig_id_diffs < 0] = 0
+        try:
+            trig_diff_hist = np.bincount(trig_id_diffs)
+            bin_positions_trig = np.arange(trig_diff_hist.shape[0])
+            trig_mean = np.average(trig_diff_hist, weights=bin_positions_trig) * bin_positions_trig.sum() / np.nansum(trig_diff_hist)
+#                 print trig_diff_hist
+#                 print "max:", max(trig_id_diffs), "max_position:", np.argmax(trig_id_diffs)
+#                 print "avg:", np.mean(trig_id_diffs)
+#                 print trig_diff_hist[1]
+            perc_w_1_bw_triggs = (float(trig_diff_hist[1]) / float(trigs)) * 100.
+#                 print "% with step of 1:", perc_w_1_bw_triggs
+            logging.info("trig mean:%s trig std: %s \ntrig max: %s trig max position: %s", str(trig_mean), str(np.std(trig_id_diffs)),
+                         str(max(trig_id_diffs)), str(np.argmax(trig_id_diffs)))
+            logging.info(trig_diff_hist)
+            logging.info(perc_w_1_bw_triggs)
+        except:
+            logging.info("failed twice to make bincount for trigs, exiting")
+            return
+
+
+def dist_between_tlu_words(data):
+    logging.info("\n\tDistance Between TLU words in number of BCIDs\nThis should match the number of triggers sent \n")
+
+    trig_id_full_less_data = data[np.where((data & TRIGGER_ID) | (data & BCID_ID))]
+    trig_id_num_less_data = np.where(trig_id_full_less_data & TRIGGER_ID)
+    num_between = np.diff(trig_id_num_less_data)
+    bcid_diff_hist = np.bincount(num_between[0])
+
+    bin_positions_bcid = np.arange(bcid_diff_hist.shape[0])
+    bcid_mean = np.average(bcid_diff_hist, weights=bin_positions_bcid) * bin_positions_bcid.sum() / np.nansum(bcid_diff_hist)
+    logging.info("diff between trig numbers hist \n %s", str(bcid_diff_hist))
+    logging.info("bcid mean:%s bcid std: %s \nbcid max: %s bcid max position: %s", str(bcid_mean), str(np.std(bcid_diff_hist)),
+                 str(max(bcid_diff_hist)), str(np.argmax(bcid_diff_hist)))
+
+
 class TLU_Tuning(ScanBase):
     scan_id = "tlu_tuning_scan"
 
@@ -121,12 +180,12 @@ class TLU_Tuning(ScanBase):
         self.dut.write_inj_mask(mask_inj)
         self.dut.write_hitor_mask(mask_hitor)
 
-        self.dut['trigger'].set_delay(390)
+        self.dut['trigger'].set_delay(356)
         self.dut['trigger'].set_width(8)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
 
-        self.dut['TLU_veto_pulse'].set_delay(1000)
+        self.dut['TLU_veto_pulse'].set_delay(200)
         self.dut['TLU_veto_pulse'].set_width(16)
         self.dut['TLU_veto_pulse'].set_repeat(1)
         self.dut['TLU_veto_pulse'].set_en(True)
@@ -176,67 +235,11 @@ class TLU_Tuning(ScanBase):
         print self.dut['TLU'].TRIGGER_COUNTER, new_trigs
         dqdata = self.fifo_readout.data
         data = np.concatenate([item[0] for item in dqdata])
-        data = np.reshape(data, data.shape[0])
-        trig_id_pos = np.where(data & TRIGGER_ID)
-        trig_id_list = data[trig_id_pos] & TRG_MASK
 
-        trig_id_full_less_data = data[np.where((data & TRIGGER_ID) | (data & BCID_ID))]
-        trig_id_num_less_data = np.where(trig_id_full_less_data & TRIGGER_ID)
-        num_between = np.diff(trig_id_num_less_data)
+        trig_id_inc_rate(data, new_trigs)
+        dist_between_tlu_words(data)
 
-        trig_id_diffs = np.diff(trig_id_list).astype(int)
-        try:
-            trig_diff_hist = np.bincount(trig_id_diffs)
-            bin_positions_trig = np.arange(trig_diff_hist.shape[0])
-            trig_mean = np.average(trig_diff_hist, weights=bin_positions_trig) * bin_positions_trig.sum() / np.nansum(trig_diff_hist)
-#             print "trig diff", trig_diff_hist
-#             print "max:", max(trig_id_diffs), "max_position:", np.argmax(trig_id_diffs)
-#             print "avg:", np.mean(trig_id_diffs)
-#             print trig_diff_hist[1]
-            perc_w_1_bw_triggs = (float(trig_diff_hist[1]) / float(new_trigs)) * 100.
-#             print "% with step of 1:", perc_w_1_bw_triggs
-            logging.info("trig mean:%s trig std: %s \ntrig max: %s trig max position: %s", str(trig_mean), str(np.std(trig_id_diffs)),
-                         str(max(trig_id_diffs)), str(np.argmax(trig_id_diffs)))
-            logging.info(trig_diff_hist)
-            logging.info(perc_w_1_bw_triggs)
-        except:
-            #             print trig_id_diffs[trig_id_diffs < 0]
-            logging.info("negative values in the trigger differences!!!")
-            trig_id_diffs[trig_id_diffs < 0] = 0
-            try:
-                trig_diff_hist = np.bincount(trig_id_diffs)
-                bin_positions_trig = np.arange(trig_diff_hist.shape[0])
-                trig_mean = np.average(trig_diff_hist, weights=bin_positions_trig) * bin_positions_trig.sum() / np.nansum(trig_diff_hist)
-#                 print trig_diff_hist
-#                 print "max:", max(trig_id_diffs), "max_position:", np.argmax(trig_id_diffs)
-#                 print "avg:", np.mean(trig_id_diffs)
-#                 print trig_diff_hist[1]
-                perc_w_1_bw_triggs = (float(trig_diff_hist[1]) / float(new_trigs)) * 100.
-#                 print "% with step of 1:", perc_w_1_bw_triggs
-                logging.info("trig mean:%s trig std: %s \ntrig max: %s trig max position: %s", str(trig_mean), str(np.std(trig_id_diffs)),
-                             str(max(trig_id_diffs)), str(np.argmax(trig_id_diffs)))
-                logging.info(trig_diff_hist)
-                logging.info(perc_w_1_bw_triggs)
-            except:
-                logging.info("failed twice to make bincount for trigs, exiting")
-                return
-
-        logging.info("\n\tBCID STUFF \n")
-#         np.reshape(num_between, num_between.shape[1])
-#         print num_between.shape
-#         print num_between
-#         print np.max(num_between)
-        bcid_diff_hist = np.bincount(num_between[0])
-#         print "bcid diff", bcid_diff_hist
-#         print "max:", np.max(bcid_diff_hist), "max_position:", np.argmax(bcid_diff_hist)
-#         print "avg:", np.mean(bcid_diff_hist), "median:", np.median(bcid_diff_hist)
-        bin_positions_bcid = np.arange(bcid_diff_hist.shape[0])
-        bcid_mean = np.average(bcid_diff_hist, weights=bin_positions_bcid) * bin_positions_bcid.sum() / np.nansum(bcid_diff_hist)
-        logging.info("bcid mean:%s bcid std: %s \nbcid max: %s bcid max position: %s", str(bcid_mean), str(np.std(bcid_diff_hist)),
-                     str(max(bcid_diff_hist)), str(np.argmax(bcid_diff_hist)))
-        logging.info("diff between trig numbers hist \n %s", str(bcid_diff_hist))
         logging.info("\n\tFinished Scan Loop\n")
-#         print bcid_diff_hist[14], bcid_diff_hist[15]
 
 
 if __name__ == "__main__":
