@@ -87,7 +87,7 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
         # these lists are all indexes
         man_disabled = scan_args['ex_pix_disable_list']
         tune_disabled = np.where(mask_en_from_file == False)
-        occ_0 = np.where((occ.reshape(4096) < 10) & (mask_en_from_file == True))
+        occ_0 = np.where((occ.reshape(4096) < (np.mean(occ) / 20)) & (mask_en_from_file == True))
 #         occ_0 = [x for x in occ_0 if x not in man_disabled]
 
         man_dis_mask = np.full(4096, False)  # true means DISABLED
@@ -98,7 +98,11 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
         tune_dis_mask[noise_mask.reshape(4096) == True] = True
         man_dis_mask[man_disabled] = True
         occ_0_mask[occ_0] = True
-
+        print "tuned to 31:\n", np.where(mask_tdac == 31)
+        print "\ntuned to 0:\n", np.where(mask_tdac == 0)
+        print "\ntuned:\n", np.where(tune_dis_mask.reshape(64, 64) == True)
+        print "\nmanual:\n", np.where(man_dis_mask.reshape(64, 64) == True)
+        print "\nocc low:\n", np.where(occ_0_mask.reshape(64, 64) == True)
         tune_dis_mask = tune_dis_mask.reshape((64, 64))
         man_dis_mask = man_dis_mask.reshape((64, 64))
         occ_0_mask = occ_0_mask.reshape((64, 64))
@@ -132,11 +136,11 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
     # plot for the disabled pixels on the
     ax1.plot(tune_cords[0], tune_cords[1], "o", markeredgewidth=1, markeredgecolor='r',
              markerfacecolor='None', zorder=2, label="Disabled in Tuning")
-#     ax1.plot(man_cords[0], man_cords[1], "p", markeredgewidth=2, markeredgecolor='k',
-#              markerfacecolor='None', zorder=4, label="Manually Disabled after tuning")
+    ax1.plot(man_cords[0], man_cords[1], "p", markeredgewidth=2, markeredgecolor='k',
+             markerfacecolor='None', zorder=4, label="Manually Disabled")
     ax1.plot(occ_cords[0], occ_cords[1], "D", markeredgewidth=1, markeredgecolor='m',
-             markerfacecolor='None', zorder=3, label="Un-tunable Pixels")
-    ax1.legend()
+             markerfacecolor='None', zorder=3, label="Low Occupancy Pixels")
+    ax1.legend(loc=9, bbox_to_anchor=(0.5, -0.1), ncol=3)
     eff_data[(tune_cords[1], tune_cords[0])] = 0
     eff_data[(occ_cords[1], occ_cords[0])] = 0
     fig4 = Figure()
@@ -288,6 +292,7 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
     ax3.bar(left=bin_left, height=eff_cut_hist, width=np.diff(bin_left)[0], align="edge")
     ax3.set_yscale('log')
     # eff_data_cut = eff_data[][]
+    fig1.tight_layout()
 
     return fig1, fig4, fig2, fig3, eff_data, eff_list, perc_inc_list
 
@@ -499,44 +504,44 @@ def flavor_controller(folder_name=None):
     plt.clf()
     pp.savefig(fig3, layout='tight')
 
-    flav_eff_list = []
-    flav_perc_inc_list = []
-    for num, flav in enumerate(type_name_list):
-        try:
-            fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_list[num], flav, eff_h5_file=eff_h5_file)
-            flav_eff_list.append(eff)
-            flav_perc_inc_list.append(perc)
-            plt.clf()
-            pp.savefig(fig, layout='tight')
-        except:
-            print 'failed to make efficiency plots for ', flav
-
-    for num_pix in range(4):
-        for num_col in range(4):
-            try:
-                fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
-                                                           type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
-                flav_eff_list.append(eff)
-                flav_perc_inc_list.append(perc)
-                plt.clf()
-                pp.savefig(fig, layout='tight')
-            except:
-                print "failed to make efficiency plots for ", num_col, num_pix
-
-    for num_pix in range(4, 8):
-        for num_col in range(4, 8):
-            try:
-                fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
-                                                           type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
-                flav_eff_list.append(eff)
-                flav_perc_inc_list.append(perc)
-                plt.clf()
-                pp.savefig(fig, layout='tight')
-            except:
-                print "failed to make efficiency plots for ", num_col, num_pix
+#     flav_eff_list = []
+#     flav_perc_inc_list = []
+#     for num, flav in enumerate(type_name_list):
+#         try:
+#             fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_list[num], flav, eff_h5_file=eff_h5_file)
+#             flav_eff_list.append(eff)
+#             flav_perc_inc_list.append(perc)
+#             plt.clf()
+#             pp.savefig(fig, layout='tight')
+#         except:
+#             print 'failed to make efficiency plots for ', flav
+#
+#     for num_pix in range(4):
+#         for num_col in range(4):
+#             try:
+#                 fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
+#                                                            type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
+#                 flav_eff_list.append(eff)
+#                 flav_perc_inc_list.append(perc)
+#                 plt.clf()
+#                 pp.savefig(fig, layout='tight')
+#             except:
+#                 print "failed to make efficiency plots for ", num_col, num_pix
+#
+#     for num_pix in range(4, 8):
+#         for num_col in range(4, 8):
+#             try:
+#                 fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
+#                                                            type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
+#                 flav_eff_list.append(eff)
+#                 flav_perc_inc_list.append(perc)
+#                 plt.clf()
+#                 pp.savefig(fig, layout='tight')
+#             except:
+#                 print "failed to make efficiency plots for ", num_col, num_pix
 
     pp.close()
-    return eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list
+#     return eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list
 
 
 if __name__ == "__main__":
@@ -587,36 +592,37 @@ if __name__ == "__main__":
                  173, 203, 143, 93, 33, 33, 93, 143, 203, 103, 53, 53, 153, 103, 203, 53, 153, 103, 103]
 
 #     chdir("/media/daniel/Maxtor/fe65p2_testbeam_april_2018/")
-    with tb.open_file('/media/daniel/Maxtor/fe65p2_testbeam_april_2018/efficiency_over_all_runs.h5', 'w') as out_file_h5:
-        eff_table = out_file_h5.create_table(out_file_h5.root, name='eff_table', description=dict, title='eff_table')
-        for x, num in enumerate(run_list):
-            #     for num in [5]:
-            folder_name = str("run") + str(num)
-            print folder_name, run_list[x], bias_list[x], vth1_list[x]
-            eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list = flavor_controller(folder_name)
+#     with tb.open_file('/media/daniel/Maxtor/fe65p2_testbeam_april_2018/efficiency_over_all_runs.h5', 'w') as out_file_h5:
+#         eff_table = out_file_h5.create_table(out_file_h5.root, name='eff_table', description=dict, title='eff_table')
+    for x, num in enumerate(run_list):
+        #     for num in [5]:
+        folder_name = str("run") + str(num)
+        print folder_name, run_list[x], bias_list[x], vth1_list[x]
+        eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list = flavor_controller(folder_name)
 
-            eff_table.row['run_num'] = run_list[x]
-            eff_table.row['bias'] = bias_list[x] * -1
-            eff_table.row['vth1'] = vth1_list[x]
-
-            eff_table.row['total'] = eff_list[0][0] * 100
-            eff_table.row['total_errm'] = eff_list[0][1] * 100
-            eff_table.row['total_errp'] = eff_list[0][2] * 100
-            eff_table.row['perc_inc_total'] = perc_inc_list[0]
-            eff_table.row['cuts'] = eff_list[1][0] * 100
-            eff_table.row['cuts_errm'] = eff_list[1][1] * 100
-            eff_table.row['cuts_errp'] = eff_list[1][2] * 100
-            eff_table.row['perc_inc_cuts'] = perc_inc_list[1]
-
-            j = 0
-            for i in names[2:]:
-                eff_table.row[i] = flav_eff_list[j][0] * 100
-                eff_table.row[i + '_errm'] = flav_eff_list[j][1] * 100
-                eff_table.row[i + '_errp'] = flav_eff_list[j][2] * 100
-                eff_table.row['perc_inc_' + i] = flav_perc_inc_list[j]
-                j += 1
-
-            eff_table.row.append()
-            eff_table.flush()
+#         eff_table.row['run_num'] = run_list[x]
+#         eff_table.row['bias'] = bias_list[x] * -1
+#         eff_table.row['vth1'] = vth1_list[x]
+#
+#         eff_table.row['total'] = eff_list[0][0] * 100
+#         eff_table.row['total_errm'] = eff_list[0][1] * 100
+#         eff_table.row['total_errp'] = eff_list[0][2] * 100
+#         eff_table.row['perc_inc_total'] = perc_inc_list[0]
+#         eff_table.row['cuts'] = eff_list[1][0] * 100
+#         eff_table.row['cuts_errm'] = eff_list[1][1] * 100
+#         eff_table.row['cuts_errp'] = eff_list[1][2] * 100
+#         eff_table.row['perc_inc_cuts'] = perc_inc_list[1]
+#
+#         j = 0
+#         for i in names[2:]:
+#             eff_table.row[i] = flav_eff_list[j][0] * 100
+#             eff_table.row[i + '_errm'] = flav_eff_list[j][1] * 100
+#             eff_table.row[i + '_errp'] = flav_eff_list[j][2] * 100
+#             eff_table.row['perc_inc_' + i] = flav_perc_inc_list[j]
+#             j += 1
+#
+#         eff_table.row.append()
+#         eff_table.flush()
+        break
 
     print "finished without errors"

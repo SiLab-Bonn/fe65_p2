@@ -28,7 +28,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 cmap = plt.cm.viridis
 cmap.set_under(color='white')
 
-eff_file_h5 = '/media/daniel/Maxtor/fe65p2_testbeam_april_2018/efficiency_over_all_runs_w7.h5'
+eff_file_h5 = '/media/daniel/Maxtor/fe65p2_testbeam_april_2018/efficiency_over_all_runs_wo7.h5'
 # fe_name_list2 = ['CPL000', 'CPL001', 'CPL011', 'CPL001RH', 'CPL100', 'CPL101', 'CPL101RH', 'CPL101']
 # fe_name_list = ['fe0', 'fe1', 'fe2', 'fe3', 'fe4', 'fe5', 'fe6', 'fe7']
 # pixel_flav_list = ['nw15', 'nw20', 'nw25', 'nw30', 'dnw15', 'dnw20', 'dnw25', 'dnw30']
@@ -389,35 +389,53 @@ def poll_effs(bias_line=None, vth1_line=None, below_bias=None, above_vth1=None, 
 
     fig_list = []
     if bias_line:
+        print 'above bias'
         fig_list = poll_top_effs(run_list=eff_table[eff_table['bias'] * -1 >= bias_line]
-                                 ['run_num'], title="Bias above %s" % str(bias_line))
-        print 'finished above bias'
+                                 ['run_num'], title="Bias >= %s" % str(bias_line))
+        print 'below bias'
         fig_list.extend(poll_top_effs(run_list=eff_table[eff_table['bias'] * -1 < bias_line]
                                       ['run_num'], title="Bias below %s" % str(bias_line)))
-        print 'finished below bias'
+        print 'finished bias'
 
     if vth1_line:
+        print "above vth1"
         fig_list = poll_top_effs(run_list=eff_table[eff_table['vth1'] >= vth1_line]
-                                 ['run_num'], title="Vth1 above %s" % str(vth1_line))
-        print 'finished above vth1'
+                                 ['run_num'], title="Vth1 >= %s" % str(vth1_line))
+        print 'below vth1'
         fig_list.extend(poll_top_effs(run_list=eff_table[eff_table['vth1'] * -1 < vth1_line]
                                       ['run_num'], title="vth1 below %s" % str(vth1_line)))
-        print 'finished below vth1'
-    fig_list.extend(poll_top_effs())
+        print 'finished vth1'
     return fig_list
 
 
 def poll_top_effs(run_list=None, title=None):
-    with tb.open_file(eff_file_h5, 'r+') as eff_file:
+    with tb.open_file(eff_file_h5, 'r') as eff_file:
         eff_table = eff_file.root.eff_table[:]
 
     poll_fe = {fe: [0, 0, 0, 0, 0, 0, 0, 0] for fe in fe_name_list}
     poll_nw = {nw: [0, 0, 0, 0, 0, 0, 0, 0] for nw in pixel_flav_list}
+    nw_effs = {nw: [0, 0, 0] for nw in pixel_flav_list}
+    fe_effs = {fe: [0, 0, 0] for fe in fe_name_list}
+
     if run_list is None:
         run_list = eff_table['run_num']
+
+    nw_runs = {nw: [float(len(run_list)), float(len(run_list)), float(len(run_list))] for nw in pixel_flav_list}
+    fe_runs = {fe: [float(len(run_list)), float(len(run_list)), float(len(run_list))] for fe in fe_name_list}
     for run in run_list:
         eff_table_holdf = eff_table[eff_table['run_num'] == run]
         eff_table_hold = [eff_table_holdf[x][0] for x in fe_name_list]
+        for fe in fe_name_list:
+            fe_effs[fe][0] += eff_table_holdf[fe][0]
+            if eff_table_holdf[fe + '_errp'][0] > 0.:
+                fe_effs[fe][1] += eff_table_holdf[fe + '_errp'][0]
+            else:
+                fe_runs[fe][1] -= 1.
+            if eff_table_holdf[fe + '_errm'][0] < 0.:
+                fe_effs[fe][2] += eff_table_holdf[fe + '_errm'][0]
+            else:
+                fe_runs[fe][2] -= 1.
+
         order = np.sort(eff_table_hold)
 #         print order
 #         print eff_table_hold
@@ -434,6 +452,19 @@ def poll_top_effs(run_list=None, title=None):
         # need to fix this tomorrow!
 
         eff_table_hold = [eff_table_holdf[x][0] for x in pixel_flav_list]
+        for nw in pixel_flav_list:
+            nw_effs[nw][0] += eff_table_holdf[nw][0]
+            nw_effs[nw][1] += eff_table_holdf[nw + '_errp'][0]
+            nw_effs[nw][2] += eff_table_holdf[nw + '_errm'][0]
+            if eff_table_holdf[nw + '_errp'][0] > 0.:
+                nw_effs[nw][1] += eff_table_holdf[nw + '_errp'][0]
+            else:
+                nw_runs[nw][1] -= 1.
+            if eff_table_holdf[nw + '_errm'][0] < 0.:
+                nw_effs[nw][2] += eff_table_holdf[nw + '_errm'][0]
+            else:
+                nw_runs[nw][2] -= 1.
+
         order = np.sort(eff_table_hold)
 
         poll_nw[pixel_flav_list[np.where(eff_table_hold == order[7])[0][0]]][0] += 1
@@ -445,10 +476,27 @@ def poll_top_effs(run_list=None, title=None):
         poll_nw[pixel_flav_list[np.where(eff_table_hold == order[1])[0][0]]][6] += 1
         poll_nw[pixel_flav_list[np.where(eff_table_hold == order[0])[0][0]]][7] += 1
 
+    # want the average eff w error for each fe and flavor
+
     fig_list = []
+    print "\n\tFrontend Table"
     for x in poll_fe:
         # histogram the dictionaries
         # the values are already histogrammed
+        #         avg_eff = np.mean(eff_table[eff_table['run_num'] == run_list][x])
+        #         avg_eff_errp = np.mean(eff_table_2[x + '_errp'])
+        #         avg_eff_errm = np.mean(eff_table_2[x + '_errm'])
+        perc_1 = 100. * (float(poll_fe[x][0]) / float(len(run_list)))
+        perc_2 = 100. * (float(poll_fe[x][1]) / float(len(run_list)))
+        perc_3 = 100. * (float(poll_fe[x][2]) / float(len(run_list)))
+        perc_2ndlast = 100. * (float(poll_fe[x][-2]) / float(len(run_list)))
+        perc_last = 100. * (float(poll_fe[x][-1]) / float(len(run_list)))
+        if 0 not in fe_runs[x]:
+            print x, "avg eff", fe_effs[x][0] / fe_runs[x][0], "+", fe_effs[x][1] / fe_runs[x][1], "-", fe_effs[x][2] / fe_runs[x][2], "\tperc1:", perc_1, "perc2:", perc_2, "perc_3:", perc_3, "perc last:", perc_last
+
+        # print x, "avg eff", avg_eff, "+", avg_eff_errp, "-", avg_eff_errm,
+        # "\tperc1:", perc_1, "perc2:", perc_2, "perc_3:", perc_3, "perc 2nd
+        # last:", perc_2ndlast, "perc last:", perc_last
         fig = Figure()
         _ = FigureCanvas(fig)
         fig.clear()
@@ -462,7 +510,18 @@ def poll_top_effs(run_list=None, title=None):
         ax.xaxis.set_minor_locator(AutoMinorLocator(5))
         ax.grid()
         fig_list.append(fig)
+    print "\n\tSensor table"
     for x in poll_nw:
+        #         avg_eff = np.mean(eff_table_2[x])
+        #         avg_eff_errp = np.mean(eff_table_2[x + '_errp'])
+        #         avg_eff_errm = np.mean(eff_table_2[x + '_errm'])
+        perc_1 = 100. * (float(poll_nw[x][0]) / float(len(run_list)))
+        perc_2 = 100. * (float(poll_nw[x][1]) / float(len(run_list)))
+        perc_3 = 100. * (float(poll_nw[x][2]) / float(len(run_list)))
+        perc_last = 100. * (float(poll_nw[x][-1]) / float(len(run_list)))
+
+        print x, "avg eff", nw_effs[x][0] / nw_runs[x][0], "+", nw_effs[x][1] / nw_runs[x][1], "-", nw_effs[x][2] / nw_runs[x][2], "\tperc1:", perc_1, "perc2:", perc_2, "perc_3:", perc_3, "perc last:", perc_last
+
         fig = Figure()
         _ = FigureCanvas(fig)
         fig.clear()
@@ -483,22 +542,22 @@ if __name__ == "__main__":
     bias_list = [-100, -175, -35]
     vth1_list = [43, 143, 203]
 
-    pdfName = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/eff_analysis_plots_w7.pdf"
-    pp = PdfPages(pdfName)
-    for bias in bias_list:
-        fig, fig1 = sensor_and_FE_plots(bias_voltage=bias)
-        pp.savefig(fig, layout='tight')
-        plt.clf()
-        pp.savefig(fig1, layout='tight')
-        plt.clf()
-
-    for vth1 in vth1_list:
-        fig, fig1 = sensor_and_FE_plots(vth1=vth1)
-        pp.savefig(fig, layout='tight')
-        plt.clf()
-        pp.savefig(fig1, layout='tight')
-        plt.clf()
-    pp.close()
+#     pdfName = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/eff_analysis_plots_wo7.pdf"
+#     pp = PdfPages(pdfName)
+#     for bias in bias_list:
+#         fig, fig1 = sensor_and_FE_plots(bias_voltage=bias)
+#         pp.savefig(fig, layout='tight')
+#         plt.clf()
+#         pp.savefig(fig1, layout='tight')
+#         plt.clf()
+#
+#     for vth1 in vth1_list:
+#         fig, fig1 = sensor_and_FE_plots(vth1=vth1)
+#         pp.savefig(fig, layout='tight')
+#         plt.clf()
+#         pp.savefig(fig1, layout='tight')
+#         plt.clf()
+#     pp.close()
 #
 #     pdfName2 = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/eff_analysis_plots_bias_combi_wo7.pdf"
 #     pp2 = PdfPages(pdfName2)
@@ -559,9 +618,15 @@ if __name__ == "__main__":
 #         plt.clf()
 #     pp5.close()
 
-#     poll_figs = poll_effs(bias_line=100)
-#     poll_figs.extend(poll_effs(vth1_line=125))
-#
+    print "\tbias line = 100"
+    poll_figs = poll_effs(bias_line=100)
+    print "\n------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n"
+    print "\tvth1 line = 105"
+    poll_figs.extend(poll_effs(vth1_line=105))
+    print "\n------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n"
+    print "\tAll scans"
+    poll_figs.extend(poll_top_effs())
+
 #     pdfName6 = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/eff_analysis_polls_w7.pdf"
 #     pp6 = PdfPages(pdfName6)
 #     for x in poll_figs:
