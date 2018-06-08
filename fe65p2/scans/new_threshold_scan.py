@@ -7,7 +7,6 @@ Created by Daniel Coquelin 1/12/2018
 
 
 from fe65p2.scan_base import ScanBase
-import fe65p2.plotting as plotting
 import fe65p2.DGC_plotting as DGC_plotting
 import time
 import fe65p2.analysis as analysis
@@ -16,10 +15,8 @@ import logging
 import numpy as np
 import bitarray
 import tables as tb
-from bokeh.charts import output_file, save
-import fe65p2.scans.inj_tuning_columns as inj_cols
+# import fe65p2.scans.inj_tuning_columns as inj_cols
 import fe65p2.scans.noise_tuning_columns as noise_cols
-from bokeh.models.layouts import Column, Row
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from basil.dut import Dut
@@ -27,7 +24,7 @@ from basil.dut import Dut
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip4.yaml'
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
 
 local_configuration = {
     "quad_columns": [True] * 16 + [False] * 0,
@@ -55,7 +52,7 @@ local_configuration = {
     #   thrs scan
     "mask_steps": 4,
     "repeat_command": 100,
-    "scan_range": [0.001, 0.24, 0.0085],
+    "scan_range": [0.001, 0.4, 0.03],
     "TDAC": 16
 }
 
@@ -126,6 +123,8 @@ class ThresholdScan(ScanBase):
         mask_inj = np.full([64, 64], False, dtype=np.bool)
         mask_hitor = np.full([64, 64], True, dtype=np.bool)
 
+        self.dut.write_tune_mask(mask_tdac)
+
         for inx, col in enumerate(kwargs['quad_columns']):
             if col:
                 mask_en[inx * 4:(inx + 1) * 4, :] = True
@@ -139,7 +138,7 @@ class ThresholdScan(ScanBase):
         file7 = kwargs.get("noise_col7")
         mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
-        vth1 += 20
+        vth1 += 110
         print vth1
 #         if mask_filename:
 #             logging.info('***** Using pixel mask from file: %s', mask_filename)
@@ -172,8 +171,8 @@ class ThresholdScan(ScanBase):
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
-        self.dut['trigger'].set_delay(402)
-        self.dut['trigger'].set_width(12)
+        self.dut['trigger'].set_delay(395)
+        self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
 
@@ -211,7 +210,7 @@ class ThresholdScan(ScanBase):
                     self.set_local_config(vth1=vth1)
 
                     self.dut['inj'].start()
-                    # time.sleep(0.3)
+#                     time.sleep(0.3)
                     while not self.dut['inj'].is_done():
                         time.sleep(0.05)
 
@@ -224,9 +223,12 @@ class ThresholdScan(ScanBase):
         self.h5_file.create_carray(scan_results, 'tdac_mask', obj=mask_tdac)
         self.h5_file.create_carray(scan_results, 'en_mask', obj=mask_en_from_file)
 
-    def analyze(self):
+    def analyze(self, pdf_name=None):
 
-        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/threshold_scan_testing.pdf'
+        if pdf_name:
+            pdfName = pdf_name
+        else:
+            pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/threshold_scan_testing.pdf'
         pp = PdfPages(pdfName)
         print pp
         h5_filename = self.output_filename + '.h5'
@@ -247,8 +249,8 @@ class ThresholdScan(ScanBase):
 
             # self.meta_data_table.attrs.dac_status
         analysis.analyze_threshold_scan(h5_filename)
-        status_plot = DGC_plotting.plot_status(h5_filename)
-        pp.savefig(status_plot)
+#         status_plot = DGC_plotting.plot_status(h5_filename)
+#         pp.savefig(status_plot)
         occ_plot = DGC_plotting.plot_occupancy(h5_filename)
         pp.savefig(occ_plot, layout="tight")
         plt.clf()

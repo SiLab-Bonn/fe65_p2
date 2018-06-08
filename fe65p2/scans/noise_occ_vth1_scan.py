@@ -4,7 +4,6 @@ Created by Daniel Coquelin on 26/2/18
 '''
 from fe65p2.scan_base import ScanBase
 import fe65p2.DGC_plotting as DGC_plotting
-import fe65p2.scans.inj_tuning_columns as inj_cols
 import fe65p2.scans.noise_tuning_columns as noise_cols
 import time
 import logging
@@ -17,6 +16,8 @@ import tables as tb
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 import yaml
+
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
 
 local_configuration = {
     "triggers": 1000000,
@@ -31,16 +32,16 @@ local_configuration = {
     #     "vbnLccDac": 1,
     #     "compVbnDac": 25,
     #     "preCompVbnDac": 150,
-    "PrmpVbpDac": 165,
-    "vthin1Dac": 45,
-    "vthin2Dac": 0,
-    "vffDac": 86,
-    "PrmpVbnFolDac": 61,
-    "vbnLccDac": 1,
-    "compVbnDac": 45,
-    "preCompVbnDac": 185,
+    #     "PrmpVbpDac": 165,
+    #     "vthin1Dac": 45,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 86,
+    #     "PrmpVbnFolDac": 61,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 45,
+    #     "preCompVbnDac": 185,
 
-    "mask_filename": '/home/daniel/Documents/InterestingPlots/chip3/noise_tuning_14.05_26_0.h5',
+    #     "mask_filename": '/home/daniel/Documents/InterestingPlots/chip3/noise_tuning_14.05_26_0.h5',
 }
 
 
@@ -57,7 +58,6 @@ class NoiseOccVth1(ScanBase):
         repeat_command : int
             Number of injections.
         '''
-        triggers = kwargs.get("triggers", 1000000)
 
         #columns = [True] + [False] * 15
 
@@ -67,37 +67,28 @@ class NoiseOccVth1(ScanBase):
         mask_tdac = np.full([64, 64], 15, dtype=np.uint8)
         mask_hitor = np.full([64, 64], True, dtype=np.bool)
 
-#         try:
-#             mask_en, mask_tdac, vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
-#                                                                      file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
-#                                                                      file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
-#                                                                      file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
-#                                                                      file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
-#                                                                      file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
-#                                                                      file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
-#                                                                      file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
-#         except:
-#             vth1 = kwargs.get("vthin1Dac", 15)
-#
-#         self.vth1Dac = vth1
-#         mask_filename = kwargs.get(
-#             "mask_filename", '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180227_101242_noise_tuning.h5')
-
-        if mask_filename:
-            logging.info('***** Using pixel mask from file: %s', mask_filename)
-
-            with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-                mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-                mask_en = in_file_h5.root.scan_results.en_mask[:]
-                mask_tdac[mask_tdac == 32] = 31
-
-                vth1 = yaml.load(in_file_h5.root.meta_data.attrs.vth1) + 20
-#                 vth1 = dac_status['vthin1Dac']
-                print vth1
+        file0 = kwargs.get("noise_col0")
+        file1 = kwargs.get("noise_col1")
+        file2 = kwargs.get("noise_col2")
+        file3 = kwargs.get("noise_col3")
+        file4 = kwargs.get("noise_col4")
+        file5 = kwargs.get("noise_col5")
+        file6 = kwargs.get("noise_col6")
+        file7 = kwargs.get("noise_col7")
+        mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
+            file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
+        vth1 += 50
+        print vth1
+        logging.info("vth1: %s" % str(vth1))
+        ex_pix_disable_list = kwargs.get("ex_pix_disable_list")
+        mask_en_from_file = mask_en_from_file.reshape(4096)
+        mask_en_from_file[ex_pix_disable_list] = False
+        mask_en_from_file = mask_en_from_file.reshape(64, 64)
+        self.dut.write_en_mask(mask_en_from_file)
+        self.dut.write_tune_mask(mask_tdac)
+        self.dut.write_hitor_mask(mask_en_from_file)
 
         self.vth1Dac = vth1
-        print vth1
-
         self.dut.start_up()
 
         self.dut['global_conf']['OneSr'] = 1
@@ -118,10 +109,12 @@ class NoiseOccVth1(ScanBase):
         # trigger delay needs to be tuned for here. the hit_or takes more time to go through everything
         # best delay here was ~395 (for chip1) make sure to tune before data taking.
         # once tuned reduce the number of triggers sent (width)
+#         triggers = kwargs.get("triggers", 5000000)
+        triggers = 2000000
 
-        self.dut['trigger'].set_delay(1500)
-        self.dut['trigger'].set_width(8)
-        self.dut['trigger'].set_repeat(triggers)
+        self.dut['trigger'].set_delay(20000)
+        self.dut['trigger'].set_width(triggers)
+        self.dut['trigger'].set_repeat(1)
 
         vthin1DacInc = 1
         finished = False
@@ -156,6 +149,7 @@ class NoiseOccVth1(ScanBase):
                 self.set_local_config(vth1=self.vth1Dac)
             else:
                 finished = True
+            finished = True
 
             iteration += 1
         logging.info('Final vthin1Dac value: %s', str(self.vth1Dac))
@@ -179,6 +173,8 @@ class NoiseOccVth1(ScanBase):
 
             out_file_h5.create_carray(out_file_h5.root, name='HistOcc', title='Occupancy Histogram',
                                       obj=occ)
+            print np.where(occ > 0)
+            print np.where(np.reshape(occ, 4096) > 0)
 
             # lv1id_hist = np.histogram(hit_data['lv1id'])
             # out_file_h5.create_carray(
@@ -201,5 +197,7 @@ class NoiseOccVth1(ScanBase):
 if __name__ == "__main__":
 
     scan = NoiseOccVth1()
+    yaml_kwargs = yaml.load(open(yaml_file))
+    local_configuration.update(dict(yaml_kwargs))
     _ = scan.start(**local_configuration)
     scan.analyze()
