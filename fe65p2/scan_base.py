@@ -7,6 +7,7 @@ import time
 import os
 import tables as tb
 import yaml
+import zmq
 
 
 class MetaTable(tb.IsDescription):
@@ -18,6 +19,40 @@ class MetaTable(tb.IsDescription):
     scan_param_id = tb.UInt32Col(pos=5)
     error = tb.UInt32Col(pos=6)
     trigger = tb.Float64Col(pos=7)
+
+
+# def send_meta_data(socket, conf, name):
+#     '''Sends the config via ZeroMQ to a specified socket. Is called at the beginning of a run and when the config changes. Conf can be any config dictionary.
+#     '''
+#     meta_data = dict(
+#         name=name,
+#         conf=conf
+#     )
+#     try:
+#         socket.send_json(meta_data, flags=zmq.NOBLOCK)
+#     except zmq.Again:
+#         pass
+
+
+def send_data(socket, data, scan_parameters={}, name='ReadoutData'):
+    '''Sends the data of every read out (raw data and meta data) via ZeroMQ to a specified socket
+    '''
+    if not scan_parameters:
+        scan_parameters = {}
+    data_meta_data = dict(
+        name=name,
+        dtype=str(data[0].dtype),
+        shape=data[0].shape,
+        timestamp_start=data[1],  # float
+        timestamp_stop=data[2],  # float
+        readout_error=data[3],  # int
+        scan_parameters=scan_parameters  # dict
+    )
+    try:
+        socket.send_json(data_meta_data, flags=zmq.SNDMORE | zmq.NOBLOCK)
+        socket.send(data[0], flags=zmq.NOBLOCK)  # PyZMQ supports sending numpy arrays without copying any data
+    except zmq.Again:
+        pass
 
 
 class ScanBase(object):
@@ -227,6 +262,10 @@ class ScanBase(object):
             counter = counter + int(get_bin(int(data_tuple[0][0]), 32)[1])
         self.meta_data_table.row['trigger'] = counter / len(data_tuple[0])
         self.meta_data_table.row.append()
+#
+#         if self.socket:
+#             send_data(self.socket, data_tuple, self.scan_parameters)
+
         self.meta_data_table.flush()
         # print len_raw_data
 

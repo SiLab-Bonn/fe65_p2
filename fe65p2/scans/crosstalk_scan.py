@@ -14,7 +14,6 @@ import logging
 import numpy as np
 import bitarray
 import tables as tb
-import fe65p2.scans.inj_tuning_columns as inj_cols
 import fe65p2.scans.noise_tuning_columns as noise_cols
 
 
@@ -28,22 +27,24 @@ import os
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
+
 local_configuration = {
     "quad_columns": [True] * 16 + [False] * 0,
-    #   DAC parameters
-    "PrmpVbpDac": 120,
-    "vthin1Dac": 50,
-    "vthin2Dac": 0,
-    "vffDac": 92,
-    "PrmpVbnFolDac": 88,
-    "vbnLccDac": 1,
-    "compVbnDac": 90,
-    "preCompVbnDac": 140,
+    #   DAQ parameters
+    #     "PrmpVbpDac": 120,
+    #     "vthin1Dac": 50,
+    #     "vthin2Dac": 0,
+    #     "vffDac": 92,
+    #     "PrmpVbnFolDac": 88,
+    #     "vbnLccDac": 1,
+    #     "compVbnDac": 90,
+    #     "preCompVbnDac": 140,
 
     #   thrs scan
     "mask_steps": 6,
     "repeat_command": 100,
-    "scan_range": [0.001, 1.3, 0.1],
+    "scan_range": [0.8, 1.1, 0.1],
     # bare chip mask: '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180115_174703_noise_tuning.h5',
     #     "mask_filename": '/home/daniel/Documents/InterestingPlots/chip3/noise_tuning_14.05_26_0.h5',
     "TDAC": 15
@@ -115,57 +116,36 @@ class CrosstalkScan(ScanBase):
 #         self.dut['global_conf']['InjEnLd'] = 0
 
         mask_en = np.full([64, 64], True, dtype=np.bool)
-        mask_tdac = np.full([64, 64], TDAC, dtype=np.uint8)
-        mask_inj = np.full([64, 64], False, dtype=np.bool)
+        mask_tdac = np.full([64, 64], 15., dtype=np.uint8)
         mask_hitor = np.full([64, 64], True, dtype=np.bool)
+        mask_inj = np.full([64, 64], True, dtype=np.bool)
 
-        for inx, col in enumerate(kwargs['quad_columns']):
-            if col:
-                mask_en[inx * 4:(inx + 1) * 4, :] = True
-
-#         if mask_filename:
-#             logging.info('***** Using pixel mask from file: %s', mask_filename)
-#
-#             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-#                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-#                 mask_en = in_file_h5.root.scan_results.en_mask[:]
-
-        # run function from noise_cols to read all of the data from the noise scans for the columns
-#         mask_en, mask_tdac, vth1 = noise_cols.combine_prev_scans(file0='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_113648_noise_tuning.h5',
-#                                                                  file1='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_114850_noise_tuning.h5',
-#                                                                  file2='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_120114_noise_tuning.h5',
-#                                                                  file3='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_121346_noise_tuning.h5',
-#                                                                  file4='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_122503_noise_tuning.h5',
-#                                                                  file5='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_123728_noise_tuning.h5',
-#                                                                  file6='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_125000_noise_tuning.h5',
-#                                                                  file7='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180302_130204_noise_tuning.h5')
-#         print vth1
-#         vth1 = 35
-
-        if mask_filename:
-            logging.info('***** Using pixel mask from file: %s', mask_filename)
-
-            with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-                mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-#                 mask_en = in_file_h5.root.scan_results.en_mask[:]
-                mask_en_from_file = in_file_h5.root.scan_results.en_mask[:]
-#                 dac_status = yaml.load(in_file_h5.root.meta_data.attrs.dac_status)
-                vth1 = yaml.load(in_file_h5.root.meta_data.attrs.vth1) + 20
-                print vth1
-
-        self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
-        self.dut.write_en_mask(mask_en)
-        self.dut.write_hitor_mask(mask_hitor)
+        file0 = kwargs.get("noise_col0")
+        file1 = kwargs.get("noise_col1")
+        file2 = kwargs.get("noise_col2")
+        file3 = kwargs.get("noise_col3")
+        file4 = kwargs.get("noise_col4")
+        file5 = kwargs.get("noise_col5")
+        file6 = kwargs.get("noise_col6")
+        file7 = kwargs.get("noise_col7")
+        mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
+            file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
+        vth1 += 50
+        print vth1
+        logging.info("vth1: %s" % str(vth1))
+        self.dut.write_en_mask(mask_en_from_file)
+        self.dut.write_tune_mask(mask_tdac)
+        self.dut.write_hitor_mask(mask_en_from_file)
 
         pulse_width = 30000  # unit: ns
         # this seems to be working OK problem is probably bad injection on GPAC
         # usually +0
-        self.dut['inj'].set_delay(30000)  # dealy betwean injection in 25ns unit
+        self.dut['inj'].set_delay(1000)  # dealy betwean injection in 25ns unit
         self.dut['inj'].set_width(100)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
-        self.dut['trigger'].set_delay(401)
+        self.dut['trigger'].set_delay(395)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
@@ -199,9 +179,9 @@ class CrosstalkScan(ScanBase):
 
                     mask_inj[:, :] = False
                     mask_en[:, :] = True
-#                     mask_en[mask_en_from_file == False] = False
                     mask_inj = mask_inj.reshape(4096)
                     mask_inj[i::mask_steps] = True
+                    mask_en[mask_en_from_file == False] = False
                     mask_inj = mask_inj.reshape(64, 64)
                     mask_en[(mask_inj == True)] = False
 
@@ -211,16 +191,12 @@ class CrosstalkScan(ScanBase):
                     self.set_local_config()
 
                     self.dut['inj'].start()
-                    time.sleep(0.3)
-                    # pbar.update(i)
 
                     while not self.dut['inj'].is_done():
                         time.sleep(0.05)
 
                     while not self.dut['trigger'].is_done():
                         time.sleep(0.05)
-                    time.sleep(.5)
-
                     print "finished mask_step: ", i, " words recieved: ", self.fifo_readout.get_record_count()
         # scan_param_id -> (scan_range*mask_steps)+mask_steps
 #         for idx, k in enumerate(scan_range):
@@ -289,6 +265,8 @@ class CrosstalkScan(ScanBase):
 
             in_file_h5.create_carray(in_file_h5.root, name='HistOcc', title='Occupancy Histogram', obj=occ)
 
+            print np.where(occ != 0)
+
             # self.meta_data_table.attrs.dac_status
         analysis.analyze_threshold_scan(h5_filename)
         status_plot = DGC_plotting.plot_status(h5_filename)
@@ -342,5 +320,7 @@ class CrosstalkScan(ScanBase):
 
 if __name__ == "__main__":
     scan = CrosstalkScan()
+    yaml_kwargs = yaml.load(open(yaml_file))
+    local_configuration.update(dict(yaml_kwargs))
     scan.start(**local_configuration)
     scan.analyze()
