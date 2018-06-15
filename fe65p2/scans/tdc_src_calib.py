@@ -53,14 +53,14 @@ local_configuration = {
 }
 
 
-class TDCtest(ScanBase):
-    scan_id = "tdc_test"
+class TDCSrcCalib(ScanBase):
+    scan_id = "tdc_src_calib"
     # sample pixels to test with sources for charge calibration
-    # (7,15), (13,11), (24,15), (42, 12), (8, 45), (14, 46), (23, 45), (46, 46)
+    # (15,7), (11,13), (15,24), (12, 42), (45, 8), (46, 14), (45, 23), (46, 46)
 
     # non responsive pixels
     # (26, 25), (58, 36), (62, 55), (32, 48), (25, 30), (18, 14), (13, 61), (9, 59), (19, 50)
-    def scan(self, repeat_command=10, columns=[True] * 16, pix_list=[(7, 15)], **kwargs):
+    def scan(self, repeat_command=10, columns=[True] * 16, pix_list=[(15, 7), (11, 13), (15, 24), (12, 42), (45, 8), (46, 14), (45, 23), (46, 46)], **kwargs):
         '''Scan loop
 
         Parameters/important shit
@@ -76,13 +76,11 @@ class TDCtest(ScanBase):
         except RuntimeError:
             raise Warning("Pulser not connected, please connect it to use this scan!")
 
-        self.set_local_config()
-        self.dut.set_for_configuration()
-
         # enable all pixels but will only inject to selected ones see mask_inj
-        mask_en = np.full([64, 64], True, dtype=np.bool)
+        mask_en = np.full([64, 64], False, dtype=np.bool)
         mask_tdac = np.full([64, 64], 15., dtype=np.uint8)
         mask_hitor = np.full([64, 64], False, dtype=np.bool)
+        self.dut.write_inj_mask(mask_en)
 
         file0 = kwargs.get("noise_col0")
         file1 = kwargs.get("noise_col1")
@@ -95,23 +93,48 @@ class TDCtest(ScanBase):
         mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
         vth1 += 125
-#         vth1 = 1
         print vth1
         logging.info("vth1: %s" % str(vth1))
-        self.dut.write_en_mask(mask_en_from_file)
-        self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
-        self.dut.write_hitor_mask(mask_hitor)
 
-        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
-        self.dut.write_global()
+        self.dut.set_for_configuration()
+
+        self.dut['control']['RESET'] = 0b01
+        self.dut['control']['DISABLE_LD'] = 0
+        self.dut['control']['PIX_D_CONF'] = 0
+        self.dut['control'].write()
+
+        self.dut['control']['CLK_OUT_GATE'] = 1
+        self.dut['control']['CLK_BX_GATE'] = 1
+        self.dut['control'].write()
+        time.sleep(0.1)
+
+        self.dut['control']['RESET'] = 0b11
+        self.dut['control'].write()
 
         dut['Pulser'].set_on_off("ON")
         self.dut.start_up()
 
+        self.dut['global_conf']['OneSr'] = 1
+
+        self.dut['global_conf']['TestHit'] = 0
+        self.dut['global_conf']['SignLd'] = 0
+        self.dut['global_conf']['InjEnLd'] = 0
+        self.dut['global_conf']['TDacLd'] = 0
+        self.dut['global_conf']['PixConfLd'] = 0
+        self.dut.write_global()
+
+        columns = kwargs['quad_columns']
+        # self.dut['global_conf']['OneSr'] = 0  #all multi columns in parallel
+        self.dut['global_conf']['ColEn'][:] = bitarray.bitarray(columns)
+        self.dut['global_conf']['ColSrEn'][:] = bitarray.bitarray(columns)
+        self.dut.write_global()
+
+        self.dut.write_tune_mask(mask_tdac)
+
         self.dut['trigger'].set_delay(395)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
-        self.dut['trigger'].set_en(True)
+        self.dut['trigger'].set_en(False)
 
         # enable TDC
         logging.debug('Enable TDC')
@@ -125,77 +148,75 @@ class TDCtest(ScanBase):
 
         for pix in pix_list:
             # for each pixel need to enable the pixels around it
-            #             dut['Pulser'].set_on_off("ON")
+            dut['Pulser'].set_on_off("ON")
             count_old = 0
             total_old = 0
             mask_tdc = np.full([64, 64], False, dtype=np.bool)
             mask_en = np.full([64, 64], False, dtype=np.bool)
             mask_tdc[pix[0], pix[1]] = True
-            mask_en[pix[0] - 2:pix[0] + 2, pix[1] - 2:pix[1] + 2] = True
-            logging.info("pixel number: %s" % str(np.where(np.reshape(mask_tdc, 4096) == True)[0]))
+            mask_en[pix[0] - 2:pix[0] + 3, pix[1] - 2:pix[1] + 3] = True
+            logging.info("pixel number: %s" % str(np.where(np.reshape(mask_tdc, 4096) == True)[0][0]))
             self.dut.write_hitor_mask(mask_tdc)
-            self.dut.write_en_mask(mask_en)
+            self.dut.write_en_mask(mask_en)  # _from_file)
+            self.dut.write_inj_mask(mask_en)
 
+            time.sleep(0.1)
             self.set_local_config(vth1=vth1)
-#             time.sleep(3.0)
+            time.sleep(2.0)
 
-#             dut['Pulser'].set_on_off("OFF")
+            dut['Pulser'].set_on_off("OFF")
+            time.sleep(0.5)
 
             with self.readout(scan_param_id=pix[0] * 64 + pix[1]):
+                self.dut['trigger'].set_en(True)
                 self.dut['tdc']['ENABLE'] = True
-                repeat_loop = 10
-                sleep_time = 1.
-                self.dut['trigger'].set_width(int(sleep_time / 25e-9))
+                repeat_loop = 432
+                sleep_time = 200.
                 pbar = tqdm(range(repeat_loop))
                 for loop in pbar:
-                    self.dut['trigger'].start()
-                    # because of firmware bugs, need to set the number of repeats for the trigger by how long the loop is
-                    # 25 ns clock on triggers, sleep_time in s
-                    # sleep_time/25e-9
+
                     time.sleep(sleep_time)
                     count_loop = self.fifo_readout.get_record_count() - count_old
                     # print "words received in loop", loop, ":", count_loop, "\tcount rate per second: ", count_loop / sleep_time
-                    pbar.set_description("Counts/s %s " % str(np.round(count_loop / sleep_time, 5)))
+                    pbar.set_description("Counts/s %s " % str(np.round(count_loop / (sleep_time * 16), 5)))
                     count_old = self.fifo_readout.get_record_count()
                     while not self.dut['trigger'].is_done():
                         time.sleep(0.05)
 
-                self.dut['trigger'].set_en(False)
                 self.dut['tdc'].ENABLE = 0
+                self.dut['trigger'].set_en(False)
+            self.dut.set_for_configuration()
 #         print "end for loop"
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'
-        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_src_calib.pdf'
+        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_src_calib_Am.pdf'
         pp = PdfPages(pdfName)
-        fig = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename)
-        pp.savefig(fig, layout='tight')
-        plt.clf()
 
         with tb.open_file(h5_filename, 'r+') as io_file_h5:
             meta_data = io_file_h5.root.meta_data[:]
             raw_data = io_file_h5.root.raw_data[:]
-            for i in np.unique(meta_data['scan_param_id']):
-                start = meta_data[meta_data['scan_param_id'] == i]['index_start'][0]
-                stop = meta_data[meta_data['scan_param_id'] == i]['index_stop'][-1]
-                data = raw_data[start:stop]
-                tdc_data = data & 0xFFF  # only want last 12 bit
+            hit_data = self.dut.interpret_raw_data_w_tdc(raw_data, meta_data)
+            io_file_h5.create_table(io_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+#             for i in np.unique(meta_data['scan_param_id']):
+#                 data = hit_data[hit_data['scan_param_id'] == i]
+#
+#                 fig1 = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename, hit_data=data)
+#
+#                 pp.savefig(fig1, layout='tight')
+#                 plt.clf()
+        fig = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename)
+        pp.savefig(fig, layout='tight')
+        plt.clf()
+        occ_plot = DGC_plotting.plot_occupancy(h5_filename)
+        pp.savefig(occ_plot)
+        plt.clf()
+        tot_plot = DGC_plotting.plot_tot_dist(h5_filename)
+        pp.savefig(tot_plot)
+        plt.clf()
+        lv1id_plot = DGC_plotting.plot_lv1id_dist(h5_filename)
+        pp.savefig(lv1id_plot)
 
-                fig1 = Figure()
-                _ = FigureCanvas(fig1)
-                ax1 = fig1.add_subplot(111)
-                bar_data, bins = np.histogram(tdc_data, (max(tdc_data) - min(tdc_data)),
-                                              range=(min(tdc_data), max(tdc_data)))
-                bin_left = bins[:-1]
-                ax1.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
-                ax1.set_title("Spectrum of Source, Counts %s\nPixel: %s" % (str(tdc_data.shape[0]), str(i)))
-                ax1.set_xlabel("TDC channel")
-                ax1.set_ylabel("Counts")
-                ax1.grid()
-                fig1.tight_layout()
-
-                pp.savefig(fig, layout='tight')
-                plt.clf()
         pp.close()
 
         # cut out data from the second part of the pulse
@@ -215,7 +236,7 @@ class TDCtest(ScanBase):
 
 
 if __name__ == "__main__":
-    test = TDCtest()
+    test = TDCSrcCalib()
     yaml_kwargs = yaml.load(open(yaml_file))
     local_configuration.update(dict(yaml_kwargs))
     test.start(**local_configuration)

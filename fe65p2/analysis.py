@@ -35,6 +35,26 @@ class TDCFitTable(tb.IsDescription):
     p_val = tb.Float64Col(pos=4)
 
 
+def singular_hits_tdc(target_pixel, hit_data):
+    try:
+        col = target_pixel[0]
+        row = target_pixel[1]
+        pix_num = col * 64 + row
+    except:
+        col = target_pixel / 64
+        row = target_pixel % 64
+        pix_num = target_pixel
+
+    data = hit_data[hit_data['scan_param_id'] == int(pix_num)]
+    data = data[(data['col'] == int(col)) & (data['row'] == int(row))]
+
+    bins = np.bincount(data['bcid'])
+    to_keep = np.where(bins == 1)[0]
+    tf = np.in1d(data['bcid'], to_keep)
+
+    return data[tf == True]
+
+
 def tdc_table_w_srcs(h5_file_in, h5_file_old, out_file_name='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_calib.h5'):
     # need to have the data from the current scan, old data from inj/other srcs, and outputfile
 
@@ -676,13 +696,13 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command, vth1=False):
             if vth1:
                 popt, _ = curve_fit(zcurve, PlsrDAC, scurve_data, p0=[repeat_command, mu_guess, -0.5], check_finite=False)
 
-                logging.info('Fit-params-zcurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
+                #logging.info('Fit-params-zcurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
             else:
                 popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[repeat_command,
                                                                       mu_guess, sig_guess], sigma=data_errors, check_finite=False)
                 if popt[1] < 0:
                     popt[1] = 0
-                logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
+#                 logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
         except RuntimeError:  # fit failed
             popt = [repeat_command, mu_guess, sig_guess]
             logging.info('*****Fit did not work scurve: %s %s %s', str(popt[0]), str(popt[1]), str(popt[2]))

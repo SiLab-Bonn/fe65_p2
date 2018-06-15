@@ -264,14 +264,16 @@ def combi_calib_plots(h5_file):
     pass
 
 
-def tdc_src_spectrum(h5_file):
-    with tb.open_file(h5_file, 'r+') as in_file_h5:
-        meta_data = in_file_h5.root.meta_data[:]
-        raw_data = in_file_h5.root.raw_data[:]
-        scan_args = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
-    tdc_data = raw_data & 0x0FFF
-    tdc_delay = (raw_data & 0x0FF00000) >> 20
-
+def tdc_src_spectrum(h5_file, hit_data=None, pixel_name=None, src_name=None):
+    try:
+        tdc_data = hit_data['tdc']
+    except:
+        with tb.open_file(h5_file, 'r+') as in_file_h5:
+            meta_data = in_file_h5.root.meta_data[:]
+            raw_data = in_file_h5.root.raw_data[:]
+            hit_data = in_file_h5.root.hit_data[:]
+            scan_args = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
+            tdc_data = hit_data['tdc']
     # fig1 -> spectrum of data (fit to come from analysis later
     fig1 = Figure()
     _ = FigureCanvas(fig1)
@@ -280,7 +282,14 @@ def tdc_src_spectrum(h5_file):
                                   range=(min(tdc_data), max(tdc_data)))
     bin_left = bins[:-1]
     ax1.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
-    ax1.set_title("Spectrum of Source")
+    if pixel_name and src_name:
+        ax1.set_title("Spectrum of %s\n Pixel: %s" % (str(src_name), str(pixel_name)))
+    elif src_name:
+        ax1.set_title("Spectrum of %s" % str(src_name))
+    elif pixel_name:
+        ax1.set_title("Spectrum of Source\n Pixel: %s" % str(pixel_name))
+    else:
+        ax1.set_title("Spectrum of Source")
     ax1.set_xlabel("TDC channel")
     ax1.set_ylabel("Counts")
     ax1.grid()
@@ -507,9 +516,7 @@ def plot_occupancy(h5_file_name):
         ax_X.set_title('Occupancy' + str(h5_file_name))
         ax_main.set_xlabel('column')
         ax_main.set_ylabel('row')
-        h = ax_main.hist2d(hitsX_col, hitsY_row, bins=(max(hitsX_col) + 1, max(hitsY_row) + 1),
-                           range=((min(hitsX_col) - 0.5, max(hitsX_col) + 0.5), (min(hitsY_row) - 0.5, (max(hitsY_row) + 0.5))),
-                           cmap=cmap, vmin=0.00000001)
+        h = ax_main.hist2d(hitsX_col, hitsY_row, bins=(64, 64), range=((-0.5, 63.5), (-0.5, 63.5)), cmap=cmap, vmin=0.00000001)
         ax_main.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax_main.yaxis.set_minor_locator(AutoMinorLocator(5))
         ax_X.hist(hitsX_col, bins=65, range=(-0.5, 64.5))

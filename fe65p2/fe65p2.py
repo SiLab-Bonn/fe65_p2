@@ -19,6 +19,10 @@ from numba import njit
 TRIGGER_ID = 0x80000000
 TRG_MASK = 0x7FFFFFFF
 
+TDC_ID = 0x40000000
+TDC_MASK = 0xFFF
+TDC_DELAY_MASK = 0x0FF00000
+
 
 @njit
 def _interpret_raw_data(data, pix_data):
@@ -91,6 +95,105 @@ def _interpret_raw_data(data, pix_data):
                     irec += 1
 
                 if(totB != 15):
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2 + 1)
+
+                    pix_data[irec].col = col * 4 + (row / 32) * 2 + 1
+                    pix_data[irec].tot = totB
+                    irec += 1
+
+    return pix_data[:irec]
+
+
+@njit
+def _interpret_raw_data_w_tdc(data, pix_data):
+    irec = np.uint32(0)
+    prev_bcid = np.uint8(0)
+    bcid = np.uint32(0)
+    lv1id = np.uint8(0)
+    tdc = np.uint16(0)
+    delay = np.uint8(0)
+
+    col = np.uint8(0)
+    row = np.uint8(0)
+    rowp = np.uint8(0)
+    totB = np.uint8(0)
+    totT = np.uint8(0)
+
+    for inx in range(data.shape[0]):
+        if (data[inx] & TDC_ID):
+            tdc = (data[inx] & TDC_MASK)
+            delay = (data[inx] & TDC_DELAY_MASK)
+
+        elif (data[inx] & 0x800000):
+            bcid = data[inx] & 0x7FFFFF
+            if(prev_bcid + 1 != bcid):
+                lv1id = 0
+            else:
+                lv1id += 1
+            prev_bcid = bcid
+        else:
+            col = (data[inx] & 0b111100000000000000000) >> 17
+            row = (data[inx] & 0b11111100000000000) >> 11
+            rowp = (data[inx] & 0b10000000000) >> 10
+            totB = (data[inx] & 0b11110000) >> 4
+            totT = (data[inx] & 0b1111)
+
+            # print col, row, rowp, totT, totB
+
+            #| rowp = 1 | rowp = 0 |
+            #| totL_T   | totR_T   |
+            #| totL_B   | totR_B   |
+
+            if rowp == 1:
+                if(totT != 15):
+                    pix_data[irec].tdc = tdc
+                    pix_data[irec].tdc_delay = delay
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2 + 1
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2)
+                    pix_data[irec].col = col * 4 + (row / 32) * 2
+                    pix_data[irec].tot = totT
+                    irec += 1
+
+                if(totB != 15):
+                    pix_data[irec].tdc = tdc
+                    pix_data[irec].tdc_delay = delay
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2
+                    else:
+                        pix_data[irec].row = 63 - ((row % 32) * 2 + 1)
+
+                    pix_data[irec].col = col * 4 + (row / 32) * 2
+
+                    pix_data[irec].tot = totB
+                    irec += 1
+            else:
+                if(totT != 15):
+                    pix_data[irec].tdc = tdc
+                    pix_data[irec].tdc_delay = delay
+                    pix_data[irec].bcid = bcid
+                    pix_data[irec].lv1id = lv1id
+                    if row < 32:
+                        pix_data[irec].row = (row % 32) * 2 + 1
+                    else:
+                        pix_data[irec].row = 63 - (row % 32) * 2
+                    pix_data[irec].col = col * 4 + (row / 32) * 2 + 1
+                    pix_data[irec].tot = totT
+                    irec += 1
+
+                if(totB != 15):
+                    pix_data[irec].tdc = tdc
+                    pix_data[irec].tdc_delay = delay
                     pix_data[irec].bcid = bcid
                     pix_data[irec].lv1id = lv1id
                     if row < 32:
@@ -447,15 +550,45 @@ class fe65p2(Dut):
             ret = _interpret_raw_data(raw_data, pix_data)
         return ret
 
+    def interpret_raw_data_w_tdc(self, raw_data, meta_data=[]):
+        data_type = {'names': ['bcid', 'col', 'row', 'tot', 'lv1id', 'scan_param_id', 'tdc', 'tdc_delay'],
+                     'formats': ['uint32', 'uint8', 'uint8', 'uint8', 'uint8', 'uint16', 'uint16', 'uint8']}
+        ret = []
+        if len(meta_data):
+            param, index = np.unique(meta_data['scan_param_id'], return_index=True)
+            index = index[1:]
+            index = np.append(index, meta_data.shape[0])
+            index = index - 1
+            starts = []
+            stops = []
+            for i in np.unique(meta_data['scan_param_id']):
+                starts.append(meta_data[meta_data['scan_param_id'] == i]['index_start'][0])
+                stops.append(meta_data[meta_data['scan_param_id'] == i]['index_stop'][-1])
+            split = []
+            for x, y in zip(starts, stops):
+                split.append(raw_data[x:y])
+            split.append(raw_data[stops[-1]:])
+
+            for i in range(len(split[:-1])):
+                # print param[i], stops[i], len(split[i]), split[i]
+                int_pix_data = self.interpret_raw_data_w_tdc(split[i])
+                int_pix_data['scan_param_id'][:] = param[i]
+                if len(ret):
+                    ret = np.hstack((ret, int_pix_data))
+
+                else:
+                    ret = int_pix_data
+
+        else:
+            pix_data = np.recarray((raw_data.shape[0] * 2), dtype=data_type)
+            ret = _interpret_raw_data_w_tdc(raw_data, pix_data)
+
+        return ret
+
     def interpret_raw_data_tlu(self, raw_data, meta_data=[]):
         data_type = {'names': ['bcid', 'col', 'row', 'tot', 'lv1id', 'scan_param_id', 'trig_id'],
                      'formats': ['uint32', 'uint8', 'uint8', 'uint8', 'uint8', 'uint16', 'uint32']}
         ret = []
-
-        # model after bdaq, do i need the separate function?
-        # grab tlu word and save it like the scan parameter id
-        # need to add the case of a tlu word, then save it for the next section of triggers, pass in number of triggers?
-
         if len(meta_data):
             param, index = np.unique(meta_data['scan_param_id'], return_index=True)
             index = index[1:]
