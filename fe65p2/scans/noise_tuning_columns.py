@@ -83,7 +83,7 @@ def combine_prev_scans(file0, file1, file2, file3, file4, file5, file6, file7):
             mask_tdac = np.concatenate((mask_tdac, mask_tdac_hold2), axis=0)
             mask_en = np.concatenate((mask_en, mask_en_hold2), axis=0)
     max_vth1 = max(vth1_list)
-    return mask_en, mask_tdac, max_vth1
+    return mask_en, mask_tdac, abs(max_vth1)
 
 
 if __name__ == "__main__":

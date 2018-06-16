@@ -25,7 +25,7 @@ import logging
 import numpy as np
 import bitarray
 import tables as tb
-import fe65p2.scans.inj_tuning_columns as inj_cols
+#import fe65p2.scans.inj_tuning_columns as inj_cols
 import fe65p2.scans.noise_tuning_columns as noise_cols
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
@@ -35,11 +35,16 @@ from threading import Thread
 from queue import Queue
 import sys
 import traceback
+from pybar import *
 
+TRIGGER_ID = 0x80000000
+TRG_MASK = 0x7FFFFFFF
+BCID_ID = 0x800000
+BCID_MASK = 0x7FFFFF
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip4.yaml'
+yaml_file = '/home/xraytube/fe65_p2/fe65p2/chip4.yaml'
 
 local_configuration = {
     "quad_columns": [True] * 16 + [False] * 0,

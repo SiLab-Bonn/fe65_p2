@@ -157,7 +157,7 @@ class ThresholdScan(ScanBase):
         mask_en_from_file = mask_en_from_file.reshape(4096)
         mask_en_from_file[ex_pix_disable_list] = False
         mask_en_from_file = mask_en_from_file.reshape(64, 64)
-        self.dut.write_en_mask(mask_en)
+        self.dut.write_en_mask(mask_en_from_file)
         self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
         self.dut.write_inj_mask(mask_inj)
         self.dut.write_hitor_mask(mask_hitor)

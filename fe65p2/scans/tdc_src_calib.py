@@ -17,18 +17,13 @@ logging.basicConfig(level=logging.INFO,
 import numpy as np
 import bitarray
 import tables as tb
-from progressbar import ProgressBar
 import fe65p2.DGC_plotting as DGC_plotting
 from matplotlib.backends.backend_pdf import PdfPages
-import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from basil.dut import Dut
-import os
 import fe65p2.scans.noise_tuning_columns as noise_cols
 import yaml
-from matplotlib.backends.backend_agg import FigureCanvas
-from matplotlib.figure import Figure
 
 
 yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'

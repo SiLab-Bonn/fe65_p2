@@ -97,10 +97,10 @@ def combine_prev_scans(file0, file1, file2, file3, file4, file5, file6, file7):
     for j, filename in enumerate(file_list):
 
         with tb.open_file(filename, 'r+') as in_file:
-            mask_en_hold = in_file.root.analysis_results.en_mask[:]
-            mask_tdac_hold = in_file.root.analysis_results.tdac_mask[:]
-            dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
-            vth1 = dac_status['vthin1Dac']
+            mask_en_hold = in_file.root.scan_results.en_mask[:]
+            mask_tdac_hold = in_file.root.scan_results.tdac_mask[:]
+#             dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
+            vth1 = yaml.load(in_file.root.meta_data.attrs.vth1)
             vth1_list.append(vth1)
         if filename == file0:
             mask_tdac = np.delete(mask_tdac_hold, np.s_[8:], axis=0)
@@ -114,9 +114,8 @@ def combine_prev_scans(file0, file1, file2, file3, file4, file5, file6, file7):
 
             mask_tdac = np.concatenate((mask_tdac, mask_tdac_hold2), axis=0)
             mask_en = np.concatenate((mask_en, mask_en_hold2), axis=0)
-#     print np.mean(vth1_list)
-    avg_vth1 = np.mean(vth1_list) + 30
-    return mask_en, mask_tdac.astype(int), max(vth1_list)
+    max_vth1 = max(vth1_list)
+    return mask_en, mask_tdac, max_vth1
 
 
 if __name__ == "__main__":

@@ -29,9 +29,9 @@ local_configuration = {
     "PrmpVbpDac": 36,
     "vthin1Dac": 60,
     "vthin2Dac": 0,
-    "vffDac": 255,
-    "PrmpVbnFolDac": 150,
-    "vbnLccDac": 0,
+    "vffDac": 42,
+    "PrmpVbnFolDac": 51,
+    "vbnLccDac": 1,
     "compVbnDac": 25,
     "preCompVbnDac": 50,
 
@@ -46,9 +46,9 @@ local_configuration = {
 
     #   thrs scan
     "mask_steps": 4,
-    "repeat_command": 1000,
-    "scan_range": [0., 0.55, 0.05],
-    "mask_filename": '',
+    "repeat_command": 100,
+    "scan_range": [0.05, 0.7, 0.01],
+    "mask_filename": '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180111_170315_noise_tuning.h5',
     "TDAC": 16
 }
 
@@ -88,7 +88,7 @@ class ThresholdScan(ScanBase):
             pulser.init()
             logging.info('Connected to ' + str(pulser['Pulser'].get_info()))
             pulser['Pulser'].set_usr_func("FEI4_PULSE")
-            pulser['Pulser'].set_output_pol("NORM")
+#             pulser['Pulser'].set_output_pol("NORM")
             pulser_test = True
             # pulser['Pulser'].set_burst_mode("TRIG")
             # pulser['Pulser'].burst_cycles("1.0")
@@ -185,6 +185,7 @@ class ThresholdScan(ScanBase):
         self.dut['trigger'].set_en(True)
 
         pulser['Pulser'].set_pulse_period(pulse_width * 10**-9)
+        mask_steps = kwargs.get("mask_steps", mask_steps)
 
         lmask = [1] + ([0] * (mask_steps - 1))
         lmask = lmask * ((64 * 64) / mask_steps + 1)
@@ -196,7 +197,9 @@ class ThresholdScan(ScanBase):
         INJ_LO = scan_range[0]
         for idx, k in enumerate(scan_range):
             if pulser_test:
-                pulser['Pulser'].set_voltage(0., INJ_LO + k, unit='V')
+                pulser['Pulser'].set_voltage(
+                    scan_range[0], scan_range[0] + k, unit='V')
+                time.sleep(0.2)
             else:
                 self.dut['INJ_HI'].set_voltage(float(INJ_LO + k), unit='V')
 
@@ -220,25 +223,18 @@ class ThresholdScan(ScanBase):
                     bv_mask[1:] = bv_mask[0:-1]
                     bv_mask[0] = 0
 
-                    self.dut['global_conf']['vthin1Dac'] = vth1
-                    self.dut['global_conf']['preCompVbnDac'] = kwargs['preCompVbnDac']
-                    self.dut['global_conf']['vthin2Dac'] = kwargs['vthin2Dac']
-                    self.dut['global_conf']['PrmpVbpDac'] = kwargs['PrmpVbpDac']
-                    self.dut.write_global()
-                    time.sleep(0.1)
+                    self.set_local_config()
 
                     self.dut['inj'].start()
-
                     pbar.update(i)
-                    trig_wait_num = 0
 
                     while not self.dut['inj'].is_done():
                         time.sleep(0.05)
 
                     while not self.dut['trigger'].is_done():
                         time.sleep(0.05)
-                        trig_wait_num += 1
-                    print "number of trigger waits: ", trig_wait_num
+                        print 'waiting for trigger'
+                print "recieved words: ", self.fifo_readout.get_record_count()
 
         scan_results = self.h5_file.create_group(
             "/", 'scan_results', 'Scan Masks')
@@ -247,7 +243,7 @@ class ThresholdScan(ScanBase):
 
     def analyze(self):
 
-        pdfName = self.output_filename + '.pdf'
+        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/threshold_scan_testing.pdf'
         pp = PdfPages(pdfName)
         print pp
         h5_filename = self.output_filename + '.h5'
@@ -258,6 +254,12 @@ class ThresholdScan(ScanBase):
             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
             in_file_h5.create_table(
                 in_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+
+            occ = np.histogram2d(x=hit_data['col'], y=hit_data['row'],
+                                 bins=(64, 64), range=((0, 64), (0, 64)))[0]
+
+            in_file_h5.create_carray(in_file_h5.root, name='HistOcc', title='Occupancy Histogram',
+                                     obj=occ)
             # self.meta_data_table.attrs.dac_status
         analysis.analyze_threshold_scan(h5_filename)
         status_plot = DGC_plotting.plot_status(h5_filename)
@@ -296,17 +298,17 @@ class ThresholdScan(ScanBase):
         pp.savefig(t_dac_plot)
         pp.close()
 
-        status_plot1 = plotting.plot_status(h5_filename)
-        occ_plot1, H = plotting.plot_occupancy(h5_filename)
-        tot_plot1, _ = plotting.plot_tot_dist(h5_filename)
-        lv1id_plot1, _ = plotting.plot_lv1id_dist(h5_filename)
-        scan_pix_hist1, _ = plotting.scan_pix_hist(h5_filename)
-        t_dac1 = plotting.t_dac_plot(h5_filename)
-
-        output_file(self.output_filename + '.html', title=self.run_name)
-
-        save(Column(Row(occ_plot1, tot_plot1, lv1id_plot1),
-                    scan_pix_hist1, t_dac1, status_plot1))
+#         status_plot1 = plotting.plot_status(h5_filename)
+#         occ_plot1, H = plotting.plot_occupancy(h5_filename)
+#         tot_plot1, _ = plotting.plot_tot_dist(h5_filename)
+#         lv1id_plot1, _ = plotting.plot_lv1id_dist(h5_filename)
+#         scan_pix_hist1, _ = plotting.scan_pix_hist(h5_filename)
+#         t_dac1 = plotting.t_dac_plot(h5_filename)
+#
+#         output_file(self.output_filename + '.html', title=self.run_name)
+#
+#         save(Column(Row(occ_plot1, tot_plot1, lv1id_plot1),
+#                     scan_pix_hist1, t_dac1, status_plot1))
 
 #output_file(self.output_filename + '.html', title=self.run_name)
 #save(Column(Row(occ_plot, tot_plot, lv1id_plot), scan_pix_hist, t_dac, status_plot))

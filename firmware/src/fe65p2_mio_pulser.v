@@ -502,7 +502,6 @@ module fe65p2_mio (
     (
         .CONTROL0(control_bus)
     ); 
-
     chipscope_ila ichipscope_ila 
     (
         .CONTROL(control_bus),

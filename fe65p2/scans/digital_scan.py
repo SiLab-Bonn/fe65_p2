@@ -8,14 +8,14 @@ logging.basicConfig(level=logging.INFO,
 
 import numpy as np
 import bitarray
-from bokeh.charts import output_file, show, save
-from bokeh.models.layouts import Column, Row
+# from bokeh.charts import output_file, show, save
+# from bokeh.models.layouts import Column, Row
 import tables as tb
 from progressbar import ProgressBar
 import os
 
 local_configuration = {
-    "mask_steps": 4,
+    "mask_steps": 6,
     "repeat_command": 100,
     "columns": [True] * 16,
 
@@ -150,34 +150,34 @@ class DigitalScan(ScanBase):
             self.dut['trigger'].set_en(False)
             self.dut['testhit'].start()
 
-    def analyze(self):
-        h5_filename = self.output_filename + '.h5'
-
-        with tb.open_file(h5_filename, 'r+') as out_file_h5:
-            raw_data = out_file_h5.root.raw_data[:]
-            meta_data = out_file_h5.root.meta_data[:]
-
-            hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
-            out_file_h5.create_table(
-                out_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
-
-            occ = np.histogram2d(x=hit_data['col'], y=hit_data['row'],
-                                 bins=(64, 64), range=((0, 64), (0, 64)))[0]
-
-            out_file_h5.create_carray(out_file_h5.root, name='HistOcc', title='Occupancy Histogram',
-                                      obj=occ)
-
-        occ_plot, H = plotting.plot_occupancy(h5_filename)
-        tot_plot, _ = plotting.plot_tot_dist(h5_filename)
-        lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
-
-        output_file(self.output_filename + '.html', title=self.run_name)
-        save(Column(occ_plot, tot_plot, lv1id_plot))
-
-        return H
+#     def analyze(self):
+#         h5_filename = self.output_filename + '.h5'
+#
+#         with tb.open_file(h5_filename, 'r+') as out_file_h5:
+#             raw_data = out_file_h5.root.raw_data[:]
+#             meta_data = out_file_h5.root.meta_data[:]
+#
+#             hit_data = self.dut.interpret_raw_data(raw_data, meta_data)
+#             out_file_h5.create_table(
+#                 out_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
+#
+#             occ = np.histogram2d(x=hit_data['col'], y=hit_data['row'],
+#                                  bins=(64, 64), range=((0, 64), (0, 64)))[0]
+#
+#             out_file_h5.create_carray(out_file_h5.root, name='HistOcc', title='Occupancy Histogram',
+#                                       obj=occ)
+#
+#         occ_plot, H = plotting.plot_occupancy(h5_filename)
+#         tot_plot, _ = plotting.plot_tot_dist(h5_filename)
+#         lv1id_plot, _ = plotting.plot_lv1id_dist(h5_filename)
+#
+#         output_file(self.output_filename + '.html', title=self.run_name)
+#         save(Column(occ_plot, tot_plot, lv1id_plot))
+#
+#         return H
 
 
 if __name__ == "__main__":
     scan = DigitalScan()
     scan.start(**local_configuration)
-    scan.analyze()
+#     scan.analyze()

@@ -5,10 +5,8 @@ connect LEMO_TX[0] (tdc_out) to LEMO_RX[0] (trig_in) to send data when measured 
 Created by Daniel Coquelin on 21/12/2017
 '''
 from fe65p2.scan_base import ScanBase
-import fe65p2.plotting as plotting
 import fe65p2.DGC_plotting as DGC_plotting
 import fe65p2.scans.noise_tuning_columns as noise_cols
-import fe65p2.scans.inj_tuning_columns as inj_cols
 import fe65p2.analysis as analysis
 import yaml
 import time
@@ -78,19 +76,8 @@ class SourceTesting(ScanBase):
         file7 = kwargs.get("noise_col7")
         mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
-        vth1 += 50
+        vth1 += 125
         print vth1
-
-#         if mask_filename:
-#             logging.info('***** Using pixel mask from file: %s', mask_filename)
-#
-#             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-#                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-#                 mask_en_from_file = in_file_h5.root.scan_results.en_mask[:]
-#                 mask_tdac[mask_tdac == 32] = 31
-#                 vth1 = yaml.load(in_file_h5.root.meta_data.attrs.vth1) + 10
-#                 logging.info("vth1: %s" % str(vth1))
-#                 print vth1
 
         self.dut.set_for_configuration()
 

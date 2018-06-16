@@ -116,30 +116,20 @@ class AnalogScan(ScanBase):
         mask_tdac = np.full([64, 64], 15, dtype=np.uint8)
         mask_hitor = np.full([64, 64], True, dtype=np.bool)
 
-        file0 = kwargs.get("noise_col0")
-        file1 = kwargs.get("noise_col1")
-        file2 = kwargs.get("noise_col2")
-        file3 = kwargs.get("noise_col3")
-        file4 = kwargs.get("noise_col4")
-        file5 = kwargs.get("noise_col5")
-        file6 = kwargs.get("noise_col6")
-        file7 = kwargs.get("noise_col7")
+        file0 = kwargs.get("inj_col0")
+        file1 = kwargs.get("inj_col1")
+        file2 = kwargs.get("inj_col2")
+        file3 = kwargs.get("inj_col3")
+        file4 = kwargs.get("inj_col4")
+        file5 = kwargs.get("inj_col5")
+        file6 = kwargs.get("inj_col6")
+        file7 = kwargs.get("inj_col7")
         mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
-        vth1 += 20
+#         print vth1
+#         vth1 += 20
+#         vth1 = 10
         print vth1
-
-#         if mask_filename:
-#             logging.info('***** Using pixel mask from file: %s', mask_filename)
-#
-#             with tb.open_file(str(mask_filename), 'r') as in_file_h5:
-#                 mask_tdac = in_file_h5.root.scan_results.tdac_mask[:]
-#                 mask_en_from_file = in_file_h5.root.scan_results.en_mask[:]
-#                 mask_en = in_file_h5.root.scan_results.en_mask[:]
-#                 mask_tdac[mask_tdac == 32] = 31
-#                 vth1 = yaml.load(in_file_h5.root.meta_data.attrs.vth1) + 20
-#                 logging.info("vth1: %s" % str(vth1))
-#                 print vth1
 
         ex_pix_disable_list = kwargs.get("ex_pix_disable_list")
         mask_en_from_file = mask_en_from_file.reshape(4096)
@@ -217,6 +207,7 @@ class AnalogScan(ScanBase):
             print "num > repeats: ", occ[occ > scan_args['repeat_command']].shape[0]
             print np.where(occ > scan_args['repeat_command'] + 3)
             print np.where(np.reshape(occ, 4096) > scan_args['repeat_command'] + 3)
+            print np.where(occ < scan_args['repeat_command'] / 10)
         pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/analog_scan_testing3.pdf'
         pp = PdfPages(pdfName)
         occ_plot = DGC_plotting.plot_occupancy(h5_filename)
