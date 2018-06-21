@@ -32,11 +32,6 @@ from scan_base import ScanBase
 import fe65p2
 import matplotlib.pyplot as plt
 from testbeam_analysis.tools import analysis_utils
-#------------------------------------------------------------------------------
-#
-#
-#
-#------------------------------------------------------------------------------
 
 
 def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_h5, eff_binning=[64, 64]):

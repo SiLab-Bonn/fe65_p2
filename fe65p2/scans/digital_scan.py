@@ -1,6 +1,6 @@
 
 from fe65p2.scan_base import ScanBase
-import fe65p2.plotting as plotting
+# import fe65p2.plotting as plotting
 import time
 import logging
 logging.basicConfig(level=logging.INFO,

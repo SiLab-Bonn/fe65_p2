@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 from basil.dut import Dut
 import fe65p2.scans.noise_tuning_columns as noise_cols
 import yaml
+import fe65p2.analysis as anal
 
 
 yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
@@ -32,49 +33,35 @@ yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
 local_configuration = {
     "max_data_count": 10000,
     "quad_columns": [True] * 16 + [False] * 0 + [True] * 0 + [False] * 0,
-
-    # DAC parameters
-    #     "PrmpVbpDac": 100,
-    #     "vthin1Dac": 20,
-    #     "vthin2Dac": 0,
-    #     "vffDac": 110,
-    #     "PrmpVbnFolDac": 51,
-    #     "vbnLccDac": 1,
-    #     "compVbnDac": 25,
-    #     "preCompVbnDac": 150,
-
-    # /home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20171222_140517_noise_tuning.h5',
-    #     "mask_filename": '/home/daniel/Documents/InterestingPlots/chip3/20180321_112749_noise_tuning.h5',
 }
+
+pixel_flav_list = ['nw15', 'nw20', 'nw25', 'nw30', 'dnw15', 'dnw20', 'dnw25', 'dnw30']
+
+pixel_flav_dict = {'nw15': [[2, 2], [30, 7]],
+                   'nw20': [[2, 10], [30, 15]],
+                   'nw25': [[2, 18], [30, 23]],
+                   'nw30': [[2, 25], [30, 61]],
+                   'dnw15': [[33, 2], [61, 7]],
+                   'dnw20': [[33, 10], [61, 15]],
+                   'dnw25': [[33, 18], [61, 23]],
+                   'dnw30': [[33, 25], [61, 61]]}
+
+fe0 = [[0, 0], [7, 63]]
+fe1 = [[8, 0], [15, 63]]
+fe2 = [[16, 0], [23, 63]]
+fe3 = [[24, 0], [31, 63]]
+fe4 = [[32, 0], [39, 63]]
+fe5 = [[40, 0], [47, 63]]
+fe6 = [[48, 0], [55, 63]]
+fe7 = [[56, 0], [63, 63]]
 
 
 class TDCSrcCalib(ScanBase):
     scan_id = "tdc_src_calib"
-    # sample pixels to test with sources for charge calibration
-    # (15,7), (11,13), (15,24), (12, 42), (45, 8), (46, 14), (45, 23), (46, 46)
 
-    # non responsive pixels
-    # (26, 25), (58, 36), (62, 55), (32, 48), (25, 30), (18, 14), (13, 61), (9, 59), (19, 50)
-    def scan(self, repeat_command=10, columns=[True] * 16, pix_list=[(15, 7), (11, 13), (15, 24), (12, 42), (45, 8), (46, 14), (45, 23), (46, 46)], **kwargs):
-        '''Scan loop
+    def scan(self, **kwargs):
 
-        Parameters/important shit
-        ----------
-            to sync the pulse generator and the boards need to have A: 'TX1 -> to Ext Input' and B: 'RXO -> to Sync/Trigger out'
-        '''
-        #pix_list = kwargs['pix_list']
-
-        try:
-            dut = Dut(ScanBase.get_basil_dir(self) + '/examples/lab_devices/agilent33250a_pyserial.yaml')
-            dut.init()
-            logging.info('Connected to ' + str(dut['Pulser'].get_info()))
-        except RuntimeError:
-            raise Warning("Pulser not connected, please connect it to use this scan!")
-
-        # enable all pixels but will only inject to selected ones see mask_inj
         mask_en = np.full([64, 64], False, dtype=np.bool)
-        mask_tdac = np.full([64, 64], 15., dtype=np.uint8)
-        mask_hitor = np.full([64, 64], False, dtype=np.bool)
         self.dut.write_inj_mask(mask_en)
 
         file0 = kwargs.get("noise_col0")
@@ -85,7 +72,7 @@ class TDCSrcCalib(ScanBase):
         file5 = kwargs.get("noise_col5")
         file6 = kwargs.get("noise_col6")
         file7 = kwargs.get("noise_col7")
-        mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
+        _, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
         vth1 += 125
         print vth1
@@ -106,7 +93,6 @@ class TDCSrcCalib(ScanBase):
         self.dut['control']['RESET'] = 0b11
         self.dut['control'].write()
 
-        dut['Pulser'].set_on_off("ON")
         self.dut.start_up()
 
         self.dut['global_conf']['OneSr'] = 1
@@ -131,6 +117,11 @@ class TDCSrcCalib(ScanBase):
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(False)
 
+        self.dut['TLU'].TRIGGER_COUNTER = 0
+        self.dut['TLU'].TRIGGER_MODE = 1
+        self.dut['TLU'].TRIGGER_SELECT = 0  # 0-> disabled, 1-> hitOr, 2->RX0, 3-> RX1, 4->RX2
+        self.dut['TLU'].DATA_FORMAT = 0  # only trigger id
+
         # enable TDC
         logging.debug('Enable TDC')
         self.dut['tdc']['RESET'] = True
@@ -141,65 +132,56 @@ class TDCSrcCalib(ScanBase):
         self.dut['tdc']['EN_INVERT_TDC'] = False
         self.dut['tdc']['EN_WRITE_TIMESTAMP'] = True
 
-        for pix in pix_list:
-            # for each pixel need to enable the pixels around it
-            dut['Pulser'].set_on_off("ON")
-            count_old = 0
-            total_old = 0
-            mask_tdc = np.full([64, 64], False, dtype=np.bool)
-            mask_en = np.full([64, 64], False, dtype=np.bool)
-            mask_tdc[pix[0], pix[1]] = True
-            mask_en[pix[0] - 2:pix[0] + 3, pix[1] - 2:pix[1] + 3] = True
-            logging.info("pixel number: %s" % str(np.where(np.reshape(mask_tdc, 4096) == True)[0][0]))
-            self.dut.write_hitor_mask(mask_tdc)
-            self.dut.write_en_mask(mask_en)  # _from_file)
-            self.dut.write_inj_mask(mask_en)
+        count_old = 0
+        mask_tdc = np.full([64, 64], True, dtype=np.bool)
+        mask_en = np.full([64, 64], True, dtype=np.bool)
 
-            time.sleep(0.1)
-            self.set_local_config(vth1=vth1)
-            time.sleep(2.0)
+        self.dut.write_hitor_mask(mask_tdc)
+        self.dut.write_en_mask(mask_tdc)
+        self.dut.write_inj_mask(mask_tdc)
 
-            dut['Pulser'].set_on_off("OFF")
-            time.sleep(0.5)
+        self.set_local_config(vth1=vth1)
+        time.sleep(2.0)
 
-            with self.readout(scan_param_id=pix[0] * 64 + pix[1]):
-                self.dut['trigger'].set_en(True)
-                self.dut['tdc']['ENABLE'] = True
-                repeat_loop = 432
-                sleep_time = 200.
-                pbar = tqdm(range(repeat_loop))
-                for loop in pbar:
+        with self.readout():
+            self.dut['trigger'].set_en(True)
+            self.dut['tdc']['ENABLE'] = True
+            self.dut['TLU'].TRIGGER_ENABLE = 1
+            repeat_loop = 360
+            sleep_time = 170.
+            pbar = tqdm(range(repeat_loop))
+            for _ in pbar:
 
-                    time.sleep(sleep_time)
-                    count_loop = self.fifo_readout.get_record_count() - count_old
-                    # print "words received in loop", loop, ":", count_loop, "\tcount rate per second: ", count_loop / sleep_time
-                    pbar.set_description("Counts/s %s " % str(np.round(count_loop / (sleep_time * 16), 5)))
-                    count_old = self.fifo_readout.get_record_count()
-                    while not self.dut['trigger'].is_done():
-                        time.sleep(0.05)
+                time.sleep(sleep_time)
+                count_loop = self.fifo_readout.get_record_count() - count_old
+                pbar.set_description("Counts/s %s " % str(np.round(count_loop / (sleep_time * 16), 5)))
+                count_old = self.fifo_readout.get_record_count()
 
-                self.dut['tdc'].ENABLE = 0
-                self.dut['trigger'].set_en(False)
-            self.dut.set_for_configuration()
-#         print "end for loop"
+                while not self.dut['trigger'].is_done():
+                    time.sleep(0.05)
+
+            self.dut['tdc'].ENABLE = 0
+            self.dut['trigger'].set_en(False)
+            self.dut['TLU'].TRIGGER_ENABLE = 0
+        self.dut.set_for_configuration()
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'
-        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_src_calib_Am.pdf'
+        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_src_calib_Tb.pdf'
         pp = PdfPages(pdfName)
 
         with tb.open_file(h5_filename, 'r+') as io_file_h5:
             meta_data = io_file_h5.root.meta_data[:]
             raw_data = io_file_h5.root.raw_data[:]
             hit_data = self.dut.interpret_raw_data_w_tdc(raw_data, meta_data)
+            print hit_data['tdc']
             io_file_h5.create_table(io_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
-#             for i in np.unique(meta_data['scan_param_id']):
-#                 data = hit_data[hit_data['scan_param_id'] == i]
-#
-#                 fig1 = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename, hit_data=data)
-#
-#                 pp.savefig(fig1, layout='tight')
-#                 plt.clf()
+            for pix in pixel_flav_list:
+                data_singles = anal.singular_hits_tdc_pix_flav(hit_data=hit_data, flav=pix)
+                fig1 = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename, hit_data=data_singles, pixel_flav=pix, src_name='Tb')
+
+                pp.savefig(fig1, layout='tight')
+                plt.clf()
         fig = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename)
         pp.savefig(fig, layout='tight')
         plt.clf()
@@ -213,21 +195,6 @@ class TDCSrcCalib(ScanBase):
         pp.savefig(lv1id_plot)
 
         pp.close()
-
-        # cut out data from the second part of the pulse
-#                 tdc_delay = (raw & 0x0FF00000) >> 20
-
-
-# #             tdc_data = tdc_data[tdc_delay < 255][1:]
-#             print tdc_data
-#             print tdc_delay
-#             plt.hist(tdc_data, bins=max(tdc_data))
-# #             plt.hist(tdc_data[tdc_delay < 253], bins=max(tdc_data[tdc_delay < 253]))
-#             print "tdc mean: ", tdc_data.mean(), " sigma: ", tdc_data.std(), " length: ", tdc_data.shape[0]
-#
-#             print "tdc delay mean: ", tdc_delay.mean()  # , " sigma: ", tdc_delay[tdc_delay != 255].std()
-#             plt.title("tot num delay: %d" % tdc_delay.shape[0])
-#             plt.show()
 
 
 if __name__ == "__main__":

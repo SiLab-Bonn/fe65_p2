@@ -61,7 +61,7 @@ module fe65p2_mio (
     input wire FCLK_IN, // 48MHz
 
     //full speed 
-    inout wire [7:0] BUS_DATA,
+    inout wire [15:0] BUS_DATA,
     input wire [15:0] ADD,
     input wire RD_B,
     input wire WR_B,
@@ -107,12 +107,13 @@ module fe65p2_mio (
     output wire DUT_PIX_D_CONF,  
     
     output wire DUT_CLK_DATA, 
-    input wire DUT_OUT_DATA,
+    input wire DUT_OUT_DATA
 	 
-	 output wire HIT_OR_TDC_OUT
+    
     
 );   
-
+    //wire HIT_OR_2;
+    //assign HIT_OR_2 = DUT_HIT_OR;
     // MODULE ADREESSES //
     localparam GPIO_BASEADDR = 16'h0000;
     localparam GPIO_HIGHADDR = 16'h1000-1;
@@ -167,7 +168,7 @@ module fe65p2_mio (
         .CLOCK(CLK1)
     );
     
-    
+    reg HIT_OR_TDC_OUT;
     wire CLK_LOCKED;
     
     clk_gen iclk_gen(
@@ -201,19 +202,19 @@ module fe65p2_mio (
     
 
     // ------- MODULES  ------- //
-    wire [7:0] GPIO_OUT;
+    wire [15:0] GPIO_OUT;
     gpio 
     #( 
         .BASEADDR(GPIO_BASEADDR), 
         .HIGHADDR(GPIO_HIGHADDR),
-        .IO_WIDTH(8),
-        .IO_DIRECTION(8'hff)
+        .IO_WIDTH(16),
+        .IO_DIRECTION(16'hffff)
     ) i_gpio
     (
         .BUS_CLK(BUS_CLK),
         .BUS_RST(BUS_RST),
         .BUS_ADD(BUS_ADD),
-        .BUS_DATA(BUS_DATA[7:0]),
+        .BUS_DATA(BUS_DATA[15:0]),
         .BUS_RD(BUS_RD),
         .BUS_WR(BUS_WR),
         .IO(GPIO_OUT)
@@ -313,7 +314,8 @@ module fe65p2_mio (
         .EXT_START(SLD),
         .PULSE(TESTHIT)
     );
-    
+    wire TDC_OUT;
+
     pulse_gen
     #( 
         .BASEADDR(PULSE_TRIGGER_BASEADDR), 
@@ -404,7 +406,7 @@ module fe65p2_mio (
         .CLK160(CLK160),
         .DV_CLK(CLK40),
         .TDC_IN(DUT_HIT_OR),
-        .TDC_OUT(HIT_OR_TDC_OUT),
+        .TDC_OUT(TDC_OUT),
         .TRIG_IN(LEMO_RX[0]),
         .TRIG_OUT(),
 
@@ -424,7 +426,9 @@ module fe65p2_mio (
         
         .TIMESTAMP(16'b0)
     );
-
+	 always@(posedge CLK40)
+		HIT_OR_TDC_OUT <= TDC_OUT;
+		
     assign LEMO_TX[0] = HIT_OR_TDC_OUT;
 	 assign LEMO_TX[1] = DUT_INJ;
 	 assign LEMO_TX[2] = 0;

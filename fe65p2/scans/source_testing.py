@@ -62,9 +62,9 @@ class SourceTesting(ScanBase):
 
         #columns = [True] + [False] * 15
 
-        mask_en = np.full([64, 64], True, dtype=np.bool)
+        mask_en = np.full([64, 64], False, dtype=np.bool)
         mask_tdac = np.full([64, 64], 16, dtype=np.uint8)
-        mask_hitor = np.full([64, 64], False, dtype=np.bool)
+        mask_hitor = np.full([64, 64], True, dtype=np.bool)
 
         file0 = kwargs.get("noise_col0")
         file1 = kwargs.get("noise_col1")
@@ -111,81 +111,52 @@ class SourceTesting(ScanBase):
         self.dut['global_conf']['ColSrEn'][:] = bitarray.bitarray(columns)
         self.dut.write_global()
 
-        self.dut.write_en_mask(mask_en)
-        self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
-        self.dut.write_hitor_mask(mask_hitor)
+        self.dut.write_en_mask(mask_en_from_file)
+        self.dut.write_tune_mask(mask_tdac)
+        self.dut.write_hitor_mask(mask_en_from_file)
+        self.dut.write_inj_mask(mask_en_from_file)
 
         # trigger delay needs to be tuned for here. the hit_or takes more time to go through everything
         # best delay here was ~395 (for chip1) make sure to tune before data taking.
         # once tuned reduce the number of triggers sent (width)
 
-        self.dut['trigger'].set_delay(00)
+        self.dut['trigger'].set_delay(0)
         self.dut['trigger'].set_width(16)
-        self.dut['trigger'].set_repeat(10)
+        self.dut['trigger'].set_repeat(1)
 
-#         # enable TDC
-#         logging.debug('Enable TDC')
-#         self.dut['tdc']['RESET'] = True
-#         self.dut['tdc']['EN_TRIGGER_DIST'] = True
-#         self.dut['tdc']['ENABLE_EXTERN'] = False
-#         self.dut['tdc']['EN_ARMING'] = False
-#         self.dut['tdc']['EN_INVERT_TRIGGER'] = False
-#         self.dut['tdc']['EN_INVERT_TDC'] = False
-#
-#         # if using tdc need only one pixel at a time!
-#         pixel_range = [0, 4092]
-#         mask_en_test = mask_en_from_file
-#         for pix in range(pixel_range[0], pixel_range[1]):
-#             #             if mask_en_test[pix + 100] == True:
-#             self.dut.set_for_configuration()
-#             mask_en[:, :] = False
-#             mask_hitor = mask_hitor.reshape(4096)
-#             mask_hitor[:] = False
-#             mask_hitor[1861] = True
-#             mask_hitor = mask_hitor.reshape(64, 64)
-#             mask_en = mask_hitor
-#             self.dut.write_en_mask(mask_en)
-#             self.dut.write_hitor_mask(mask_hitor)
-#
-#             self.set_local_config(vth1=vth1)
-#             logging.info('Starting Scan on Pixel %s' % pix)
-#
-#             with self.readout(scan_param_id=pix):
-#
-#                 time.sleep(300)
-#                 while not self.dut['trigger'].is_done():
-#                     time.sleep(0.05)
-#
-#                 self.dut['tdc'].ENABLE = False
-#                 logging.info('Words Received: %s' % str(self.fifo_readout.get_record_count()))
-#
-#             break
-        with self.readout():
-
-            count_old = 0
-            total_old = 0
-            self.dut.set_for_configuration()
+        for x in [395]:
+            self.dut['trigger'].set_delay(x)
             self.set_local_config(vth1=vth1)
+            with self.readout():
+                count_old = 0
+                total_old = 0
+                mask_tdc = np.full([64, 64], False, dtype=np.bool)
+                mask_en = np.full([64, 64], False, dtype=np.bool)
+                mask_tdc[7, 15] = True
+                mask_en[7 - 2:15 + 3, 7 - 2:15 + 3] = True
+                logging.info("pixel number: %s" % str(np.where(np.reshape(mask_tdc, 4096) == True)[0][0]))
+                self.dut.write_hitor_mask(mask_tdc)
+                self.dut.write_en_mask(mask_en)  # _from_file)
+#                 self.dut.write_inj_mask(mask_en)
+                self.dut['trigger'].set_en(True)
+                time.sleep(20.0)
 
-            self.dut['trigger'].set_en(True)
-            time.sleep(5.0)
+#                 repeat_loop = 10
+#                 sleep_time = 1
+#                 for loop in range(repeat_loop):
+#                     time.sleep(sleep_time)
+#                     count_loop = self.fifo_readout.get_record_count() - count_old
+#                     print "words received in loop", loop, ":", count_loop, "\tcount rate per second: ", count_loop / sleep_time
+#                     count_old = self.fifo_readout.get_record_count()
 
-#             repeat_loop = 100
-#             sleep_time = 6
-#             for loop in range(repeat_loop):
-#                 time.sleep(sleep_time)
-#                 count_loop = self.fifo_readout.get_record_count() - count_old
-#                 print "words received in loop ", loop, ": ", count_loop, "\tcount rate per second: ", count_loop / sleep_time
-#                 count_old = self.fifo_readout.get_record_count()
+                self.dut['trigger'].set_en(False)
+    #             time.sleep(1)
+                print x, "total_words:", self.fifo_readout.get_record_count()  # , "counts/s:", self.fifo_readout.get_record_count() / (repeat_loop * sleep_time)
 
-            self.dut['trigger'].set_en(False)
-#             time.sleep(1)
-            print "total_words:", self.fifo_readout.get_record_count(), "counts/s:", self.fifo_readout.get_record_count() / (repeat_loop * sleep_time)
-
-            # for vth1 in xrange(30, 100, 5):
-            #     self.dut['global_conf']['vthin1Dac'] = vth1
-            # for delay in range(0, 500, 20):
-            self.dut.set_for_configuration()
+                # for vth1 in xrange(30, 100, 5):
+                #     self.dut['global_conf']['vthin1Dac'] = vth1
+                # for delay in range(0, 500, 20):
+                self.dut.set_for_configuration()
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'

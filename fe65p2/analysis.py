@@ -35,24 +35,43 @@ class TDCFitTable(tb.IsDescription):
     p_val = tb.Float64Col(pos=4)
 
 
-def singular_hits_tdc(target_pixel, hit_data):
-    try:
-        col = target_pixel[0]
-        row = target_pixel[1]
-        pix_num = col * 64 + row
-    except:
-        col = target_pixel / 64
-        row = target_pixel % 64
-        pix_num = target_pixel
+pixel_flav_dict = {'nw15': [[2, 2], [30, 7]],
+                   'nw20': [[2, 10], [30, 15]],
+                   'nw25': [[2, 18], [30, 23]],
+                   'nw30': [[2, 25], [30, 61]],
+                   'dnw15': [[33, 2], [61, 7]],
+                   'dnw20': [[33, 10], [61, 15]],
+                   'dnw25': [[33, 18], [61, 23]],
+                   'dnw30': [[33, 25], [61, 61]]}
 
-    data = hit_data[hit_data['scan_param_id'] == int(pix_num)]
-    data = data[(data['col'] == int(col)) & (data['row'] == int(row))]
 
-    bins = np.bincount(data['bcid'])
+def singular_hits_tdc_pix_flav(hit_data, flav=None):
+    #     try:
+    #         col = target_pixel[0]
+    #         row = target_pixel[1]
+    #         pix_num = col * 64 + row
+    #     except:
+    #         col = target_pixel / 64
+    #         row = target_pixel % 64
+    #         pix_num = target_pixel
+    if flav:
+        mask = np.full((64, 64), False, dtype=np.bool)
+        mask[pixel_flav_dict[flav][0][0]: pixel_flav_dict[flav][1][0], pixel_flav_dict[flav][0][1]: pixel_flav_dict[flav][1][1]] = True
+        where = np.where(mask == True)
+#         print where[0]
+        col = where[0]
+        row = where[1]
+
+        hit_data = hit_data[(min(col) <= hit_data['col']) & (hit_data['col'] <= max(col)) &
+                            (min(row) <= hit_data['row']) & (hit_data['row'] <= max(row))]
+#         print hit_data
+    #     data = hit_data[hit_data['scan_param_id'] == int(pix_num)]
+    #     data = data[(data['col'] == int(col)) & (data['row'] == int(row))]
+    bins = np.bincount(hit_data['bcid'])
     to_keep = np.where(bins == 1)[0]
-    tf = np.in1d(data['bcid'], to_keep)
+    tf = np.in1d(hit_data['bcid'], to_keep)
 
-    return data[tf == True]
+    return hit_data[tf == True]
 
 
 def tdc_table_w_srcs(h5_file_in, h5_file_old, out_file_name='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_calib.h5'):

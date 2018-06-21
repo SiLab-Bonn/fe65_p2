@@ -21,7 +21,7 @@ from basil.dut import Dut
 import os
 import yaml
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip4.yaml'
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
 
 local_configuration = {
     "mask_steps": 4,
@@ -73,7 +73,7 @@ class AnalogScan(ScanBase):
 #             pulser['Pulser'].set_usr_func("FEI4_PULSE")
             pulse_width = 30000
             pulser['Pulser'].set_pulse_period(pulse_width * 10**-9)
-            pulser['Pulser'].set_voltage(0., 0.6, unit='V')
+            pulser['Pulser'].set_voltage(0., 1.0, unit='V')
         except:
             INJ_LO = 0.2
             self.dut['INJ_LO'].set_voltage(float(INJ_LO), unit='V')

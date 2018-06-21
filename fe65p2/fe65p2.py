@@ -20,6 +20,7 @@ TRIGGER_ID = 0x80000000
 TRG_MASK = 0x7FFFFFFF
 
 TDC_ID = 0x40000000
+# TDC_ID = 0x10000000000
 TDC_MASK = 0xFFF
 TDC_DELAY_MASK = 0x0FF00000
 
@@ -117,6 +118,7 @@ def _interpret_raw_data_w_tdc(data, pix_data):
     lv1id = np.uint8(0)
     tdc = np.uint16(0)
     delay = np.uint8(0)
+    trigg_id = np.uint32(0)
 
     col = np.uint8(0)
     row = np.uint8(0)
@@ -125,7 +127,10 @@ def _interpret_raw_data_w_tdc(data, pix_data):
     totT = np.uint8(0)
 
     for inx in range(data.shape[0]):
-        if (data[inx] & TDC_ID):
+        if (data[inx] & TRIGGER_ID):
+            trigg_id = (data[inx] & TRG_MASK)
+
+        elif (data[inx] & TDC_ID):
             tdc = (data[inx] & TDC_MASK)
             delay = (data[inx] & TDC_DELAY_MASK)
 
@@ -151,6 +156,7 @@ def _interpret_raw_data_w_tdc(data, pix_data):
 
             if rowp == 1:
                 if(totT != 15):
+                    pix_data[irec].trig_id = trigg_id
                     pix_data[irec].tdc = tdc
                     pix_data[irec].tdc_delay = delay
                     pix_data[irec].bcid = bcid
@@ -164,6 +170,7 @@ def _interpret_raw_data_w_tdc(data, pix_data):
                     irec += 1
 
                 if(totB != 15):
+                    pix_data[irec].trig_id = trigg_id
                     pix_data[irec].tdc = tdc
                     pix_data[irec].tdc_delay = delay
                     pix_data[irec].bcid = bcid
@@ -179,6 +186,7 @@ def _interpret_raw_data_w_tdc(data, pix_data):
                     irec += 1
             else:
                 if(totT != 15):
+                    pix_data[irec].trig_id = trigg_id
                     pix_data[irec].tdc = tdc
                     pix_data[irec].tdc_delay = delay
                     pix_data[irec].bcid = bcid
@@ -192,6 +200,7 @@ def _interpret_raw_data_w_tdc(data, pix_data):
                     irec += 1
 
                 if(totB != 15):
+                    pix_data[irec].trig_id = trigg_id
                     pix_data[irec].tdc = tdc
                     pix_data[irec].tdc_delay = delay
                     pix_data[irec].bcid = bcid
@@ -204,7 +213,6 @@ def _interpret_raw_data_w_tdc(data, pix_data):
                     pix_data[irec].col = col * 4 + (row / 32) * 2 + 1
                     pix_data[irec].tot = totB
                     irec += 1
-
     return pix_data[:irec]
 
 
@@ -551,8 +559,8 @@ class fe65p2(Dut):
         return ret
 
     def interpret_raw_data_w_tdc(self, raw_data, meta_data=[]):
-        data_type = {'names': ['bcid', 'col', 'row', 'tot', 'lv1id', 'scan_param_id', 'tdc', 'tdc_delay'],
-                     'formats': ['uint32', 'uint8', 'uint8', 'uint8', 'uint8', 'uint16', 'uint16', 'uint8']}
+        data_type = {'names': ['bcid', 'col', 'row', 'tot', 'lv1id', 'scan_param_id', 'tdc', 'tdc_delay', 'trig_id'],
+                     'formats': ['uint32', 'uint8', 'uint8', 'uint8', 'uint8', 'uint16', 'uint16', 'uint8', 'uint32']}
         ret = []
         if len(meta_data):
             param, index = np.unique(meta_data['scan_param_id'], return_index=True)
