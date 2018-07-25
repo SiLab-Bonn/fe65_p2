@@ -133,7 +133,6 @@ class NoiseTuning(ScanBase):
         #logging.info('Temperature: %s', str(self.dut['ntc'].get_temperature('C')))
 
         mask_en = np.zeros([64, 64], dtype=np.bool)
-        #mask_tdac = np.ones([64, 64], dtype=np.uint8)
         mask_tdac = np.full([64, 64], 16, dtype=np.uint8)
 
         for inx, col in enumerate(columns):
@@ -155,8 +154,8 @@ class NoiseTuning(ScanBase):
         self.dut['global_conf']['PixConfLd'] = 0
         self.dut.write_global()
 
-        self.dut['trigger'].set_delay(1000)
-        self.dut['trigger'].set_width(8)
+        self.dut['trigger'].set_delay(395)
+        self.dut['trigger'].set_width(1)
         self.dut['trigger'].set_repeat(repeats)
         self.dut['trigger'].set_en(False)
 
@@ -183,7 +182,6 @@ class NoiseTuning(ScanBase):
                 time.sleep(.2)
 
                 self.dut['trigger'].start()
-#                 time.sleep(.1)
                 while not self.dut['trigger'].is_done():
                     time.sleep(0.05)
             self.dut.set_for_configuration()
@@ -254,10 +252,10 @@ class NoiseTuning(ScanBase):
                 mask_tdac_hold = mask_tdac
                 self.dut.set_for_configuration()
 
-                if mean_tdac <= 8.:  # and np.mean(mask_tdac[mask_en == True]) <= 6:
+                if mean_tdac <= 10.:  # and np.mean(mask_tdac[mask_en == True]) <= 6:
                     vth1_step = 3
 
-                elif 8. < mean_tdac <= 13:
+                elif 10. < mean_tdac <= 13:
                     vth1_step = 2
 
                 else:
@@ -266,10 +264,10 @@ class NoiseTuning(ScanBase):
                 self.vth1Dac -= vth1_step
 
             if mean_tdac >= 12.5:
-                self.dut['trigger'].set_delay(3500)
+                #                 self.dut['trigger'].set_delay(4000)
                 self.dut['trigger'].set_repeat(1000000)
             elif 12.5 > mean_tdac >= 9.:
-                self.dut['trigger'].set_delay(2000)
+                #                 self.dut['trigger'].set_delay(3000)
                 self.dut['trigger'].set_repeat(500000)
             else:
                 self.dut['trigger'].set_repeat(50000)

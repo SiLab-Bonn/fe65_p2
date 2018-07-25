@@ -3,7 +3,6 @@
 #
 # must have source meter, chip does not need to be powered on
 #
-#
 #===============================================================================
 
 
@@ -28,7 +27,7 @@ def measure():
     meas_dut = Dut('/home/daniel/MasterThesis/basil/examples/lab_devices/keithley2400_pyserial.yaml')
     meas_dut.init()
     print meas_dut['Sourcemeter'].get_name()
-    dut['Sourcemeter'].beeper_off()
+#     dut['Sourcemeter'].beeper_off()
     curr_lim = 7 * 10**-8
     volt_step = 3
     finished = False
@@ -38,13 +37,6 @@ def measure():
     dut['Sourcemeter'].set_current_limit(10**-6)
     curr_volt = float(dut['Sourcemeter'].get_current()[:13])
     dut['Sourcemeter'].set_voltage(0.)
-#     print abs(curr_volt) < 350.
-#     if abs(curr_volt) < 350.:
-#         for V in np.arange(curr_volt, -350., -5):
-#             dut['Sourcemeter'].set_voltage(V)
-#             dut['Sourcemeter'].on()
-#             time.sleep(2.5)
-#             print dut['Sourcemeter'].get_current()
 
     while not finished:
         curr_volt = float(dut['Sourcemeter'].get_current()[:13])
@@ -59,8 +51,6 @@ def measure():
         while not stable:
             curr = float(meas_dut['Sourcemeter'].get_current()[14:27])
             curr_list.append(curr)
-#             print np.mean(curr_list), np.mean(curr_list[-4:])
-#             print np.mean(curr_list) - np.mean(curr_list[-4:]), "\n"
             mean = np.mean(curr_list[-4:])
             if abs(np.mean(curr_list) - mean) <= 1 * 10**-10 or (time.time() - start_time) > 20:
                 stable = True
@@ -70,7 +60,7 @@ def measure():
                 volt_out.append(float(dut['Sourcemeter'].get_current()[:13]))
             else:
                 time.sleep(0.1)
-        if abs(mean) >= 5e-07:
+        if abs(mean) >= 5e-06:
             finished = True
         else:
             dut['Sourcemeter'].set_voltage(curr_volt - volt_step)
@@ -84,7 +74,7 @@ if __name__ == "__main__":
     print curr_err
     print volt_list
 
-    with open("/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/iv_curve_data_chip3.csv", "w") as f:
+    with open("/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/iv_curve_data_chip1_test.csv", "w") as f:
         writer = csv.writer(f)
         writer.writerows(izip(curr_list, curr_err, volt_list))
 
@@ -97,7 +87,7 @@ if __name__ == "__main__":
 #     ax = fig.add_subplot(111)
 #     ax.errorbar(volt_list * -1, curr_list * 10**9, yerr=curr_err)
 #     ax.set_xlabel("Voltage [V]")
-#     ax.set_ylabel("Current [nA]")
+#     ax.set_ylabel("Current [A]")
 #     ax.set_yscale("log")
 #
 #     pp.savefig(fig)
@@ -108,7 +98,7 @@ if __name__ == "__main__":
     plt.grid(True)
 #     plt.ylim(min(plot_min) * 1e9 - 1e-8, 30)
     plt.xlabel("Bias Voltage [V]")
-    plt.ylabel("Current [nA]")
+    plt.ylabel("Current [A]")
 #     plt.gcf().set_size_inches(plt.gcf().get_size_inches()[1] * 1.618, plt.gcf().get_size_inches()[1])
     plt.show()
 

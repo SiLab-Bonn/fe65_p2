@@ -9,7 +9,8 @@ transfer_layer:
   - name  : intf
     type  : SiUsb
     init:
-      bit_file: ../firmware/ise/fe65p2_mio.bit
+#      bit_file: ../firmware/ise/fe65p2_mio.bit
+      bit_file: ../firmware/ise/fe65p2_mio (4th copy).bit
 #      bit_file: ../firmware/ise/fe65p2_mio_pulser_new.bit
 #      bit_file: ../firmware/ise/fe65p2_mio_tlu.bit
       avoid_download: True

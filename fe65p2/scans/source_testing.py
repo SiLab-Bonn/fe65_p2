@@ -132,9 +132,9 @@ class SourceTesting(ScanBase):
                 total_old = 0
                 mask_tdc = np.full([64, 64], False, dtype=np.bool)
                 mask_en = np.full([64, 64], False, dtype=np.bool)
-                mask_tdc[7, 15] = True
-                mask_en[7 - 2:15 + 3, 7 - 2:15 + 3] = True
-                logging.info("pixel number: %s" % str(np.where(np.reshape(mask_tdc, 4096) == True)[0][0]))
+#                 mask_tdc[7, 15] = True
+#                 mask_en[7 - 2:15 + 3, 7 - 2:15 + 3] = True
+#                 logging.info("pixel number: %s" % str(np.where(np.reshape(mask_tdc, 4096) == True)[0][0]))
                 self.dut.write_hitor_mask(mask_tdc)
                 self.dut.write_en_mask(mask_en)  # _from_file)
 #                 self.dut.write_inj_mask(mask_en)

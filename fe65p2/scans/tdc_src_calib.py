@@ -27,7 +27,7 @@ import yaml
 import fe65p2.analysis as anal
 
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip6.yaml'
 
 
 local_configuration = {
@@ -60,6 +60,16 @@ class TDCSrcCalib(ScanBase):
     scan_id = "tdc_src_calib"
 
     def scan(self, **kwargs):
+        # pixels in column, row format
+        pix_list = [[11, 6], [10, 12], [11, 20], [9, 37], [44, 5], [44, 12], [41, 19], [42, 42]]
+
+        try:  # pulser
+            pulser = Dut(ScanBase.get_basil_dir(self) + '/examples/lab_devices/agilent33250a_pyserial.yaml')
+            pulser.init()
+            logging.info('Connected to ' + str(pulser['Pulser'].get_info()))
+#             pulser['Pulser'].set_usr_func("FEI4_PULSE")
+        except:
+            pass
 
         mask_en = np.full([64, 64], False, dtype=np.bool)
         self.dut.write_inj_mask(mask_en)
@@ -74,7 +84,7 @@ class TDCSrcCalib(ScanBase):
         file7 = kwargs.get("noise_col7")
         _, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
-        vth1 += 125
+        vth1 += 20
         print vth1
         logging.info("vth1: %s" % str(vth1))
 
@@ -133,36 +143,53 @@ class TDCSrcCalib(ScanBase):
         self.dut['tdc']['EN_WRITE_TIMESTAMP'] = True
 
         count_old = 0
-        mask_tdc = np.full([64, 64], True, dtype=np.bool)
-        mask_en = np.full([64, 64], True, dtype=np.bool)
+        mask_tdc = np.full([64, 64], False, dtype=np.bool)
+        mask_en = np.full([64, 64], False, dtype=np.bool)
+#         mask_inj = np.full([64, 64], False, dtype=np.bool)
+
+        for x in pix_list:
+            mask_tdc[x[0], x[1]] = True
+            mask_en[x[0] - 2:x[0] + 2, x[1] - 2:x[1] + 2] = True
 
         self.dut.write_hitor_mask(mask_tdc)
-        self.dut.write_en_mask(mask_tdc)
+        self.dut.write_en_mask(mask_en)
         self.dut.write_inj_mask(mask_tdc)
 
         self.set_local_config(vth1=vth1)
         time.sleep(2.0)
 
+        pulser['Pulser'].set_on_off("ON")
+        time.sleep(3)
+        pulser['Pulser'].set_on_off("OFF")
+
         with self.readout():
-            self.dut['trigger'].set_en(True)
-            self.dut['tdc']['ENABLE'] = True
-            self.dut['TLU'].TRIGGER_ENABLE = 1
-            repeat_loop = 360
-            sleep_time = 170.
-            pbar = tqdm(range(repeat_loop))
-            for _ in pbar:
+            try:
+                self.dut['trigger'].set_en(True)
+                self.dut['tdc']['ENABLE'] = True
+                self.dut['TLU'].TRIGGER_ENABLE = 1
+                repeat_loop = 216
+                sleep_time = 100.
+                pbar = tqdm(range(repeat_loop))
+                for _ in pbar:
 
-                time.sleep(sleep_time)
-                count_loop = self.fifo_readout.get_record_count() - count_old
-                pbar.set_description("Counts/s %s " % str(np.round(count_loop / (sleep_time * 16), 5)))
-                count_old = self.fifo_readout.get_record_count()
+                    time.sleep(sleep_time)
+                    count_loop = self.fifo_readout.get_record_count() - count_old
+                    pbar.set_description("Counts/s %s " % str(np.round(count_loop / (sleep_time * 17), 5)))
+                    count_old = self.fifo_readout.get_record_count()
 
+                    while not self.dut['trigger'].is_done():
+                        time.sleep(0.05)
+
+                self.dut['tdc'].ENABLE = 0
+                self.dut['trigger'].set_en(False)
+                self.dut['TLU'].TRIGGER_ENABLE = 0
+            except:
                 while not self.dut['trigger'].is_done():
                     time.sleep(0.05)
 
-            self.dut['tdc'].ENABLE = 0
-            self.dut['trigger'].set_en(False)
-            self.dut['TLU'].TRIGGER_ENABLE = 0
+                self.dut['tdc'].ENABLE = 0
+                self.dut['trigger'].set_en(False)
+                self.dut['TLU'].TRIGGER_ENABLE = 0
         self.dut.set_for_configuration()
 
     def analyze(self):

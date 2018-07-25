@@ -35,14 +35,14 @@ class TDCFitTable(tb.IsDescription):
     p_val = tb.Float64Col(pos=4)
 
 
-pixel_flav_dict = {'nw15': [[2, 2], [30, 7]],
-                   'nw20': [[2, 10], [30, 15]],
-                   'nw25': [[2, 18], [30, 23]],
-                   'nw30': [[2, 25], [30, 61]],
-                   'dnw15': [[33, 2], [61, 7]],
-                   'dnw20': [[33, 10], [61, 15]],
-                   'dnw25': [[33, 18], [61, 23]],
-                   'dnw30': [[33, 25], [61, 61]]}
+pixel_flav_dict = {'nw15': [[2, 2], [30 - 7, 7]],
+                   'nw20': [[2, 10], [30 - 7, 15]],
+                   'nw25': [[2, 18], [30 - 7, 23]],
+                   'nw30': [[2, 25], [30 - 7, 61]],
+                   'dnw15': [[33, 2], [61 - 13, 7], [61 - 5, 2], [61, 7]],
+                   'dnw20': [[33, 10], [61 - 13, 15], [61 - 5, 10], [61, 15]],
+                   'dnw25': [[33, 18], [61 - 13, 23], [61 - 5, 18], [61, 23]],
+                   'dnw30': [[33, 25], [61 - 13, 61], [61 - 5, 25], [61, 61]]}
 
 
 def singular_hits_tdc_pix_flav(hit_data, flav=None):
@@ -55,23 +55,45 @@ def singular_hits_tdc_pix_flav(hit_data, flav=None):
     #         row = target_pixel % 64
     #         pix_num = target_pixel
     if flav:
-        mask = np.full((64, 64), False, dtype=np.bool)
-        mask[pixel_flav_dict[flav][0][0]: pixel_flav_dict[flav][1][0], pixel_flav_dict[flav][0][1]: pixel_flav_dict[flav][1][1]] = True
-        where = np.where(mask == True)
-#         print where[0]
-        col = where[0]
-        row = where[1]
 
-        hit_data = hit_data[(min(col) <= hit_data['col']) & (hit_data['col'] <= max(col)) &
-                            (min(row) <= hit_data['row']) & (hit_data['row'] <= max(row))]
+        if flav in ['dnw15', 'dnw20', 'dnw25', 'dnw30']:
+            mask = np.full((64, 64), False, dtype=np.bool)
+            mask[pixel_flav_dict[flav][0][0]: pixel_flav_dict[flav][1][0], pixel_flav_dict[flav][0][1]: pixel_flav_dict[flav][1][1]] = True
+            where = np.where(mask == True)
+            col = where[0]
+            row = where[1]
+
+            hit_data_out = hit_data[(min(col) <= hit_data['col']) & (hit_data['col'] <= max(col)) &
+                                    (min(row) <= hit_data['row']) & (hit_data['row'] <= max(row))]
+
+            mask = np.full((64, 64), False, dtype=np.bool)
+            mask[pixel_flav_dict[flav][2][0]: pixel_flav_dict[flav][3][0], pixel_flav_dict[flav][2][1]: pixel_flav_dict[flav][3][1]] = True
+            where = np.where(mask == True)
+            col = where[0]
+            row = where[1]
+
+            hit_data_out = np.append(hit_data_out, hit_data[(min(col) <= hit_data['col']) & (hit_data['col'] <= max(col)) &
+                                                            (min(row) <= hit_data['row']) & (hit_data['row'] <= max(row))])
+        else:
+            mask = np.full((64, 64), False, dtype=np.bool)
+            mask[pixel_flav_dict[flav][0][0]: pixel_flav_dict[flav][1][0], pixel_flav_dict[flav][0][1]: pixel_flav_dict[flav][1][1]] = True
+            where = np.where(mask == True)
+    #         print where[0]
+            col = where[0]
+            row = where[1]
+
+            hit_data_out = hit_data[(min(col) <= hit_data['col']) & (hit_data['col'] <= max(col)) &
+                                    (min(row) <= hit_data['row']) & (hit_data['row'] <= max(row))]
+    else:
+        hit_data_out = hit_data
 #         print hit_data
     #     data = hit_data[hit_data['scan_param_id'] == int(pix_num)]
     #     data = data[(data['col'] == int(col)) & (data['row'] == int(row))]
-    bins = np.bincount(hit_data['bcid'])
+    bins = np.bincount(hit_data_out['bcid'])
     to_keep = np.where(bins == 1)[0]
-    tf = np.in1d(hit_data['bcid'], to_keep)
+    tf = np.in1d(hit_data_out['bcid'], to_keep)
 
-    return hit_data[tf == True]
+    return hit_data_out[tf == True]
 
 
 def tdc_table_w_srcs(h5_file_in, h5_file_old, out_file_name='/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_calib.h5'):
@@ -364,8 +386,8 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
         scurve_hist = in_file_h5.create_carray(Scurves_Measurments, name='Scurve_formatted', title='Scurve Histogram',
                                                obj=s_hist.reshape((64, 64, scan_range_inx.shape[0])))
         # need one that is num of occurances vs scan param ... go from the orginal s_hist -> pix_scan_hist
-        scurve_thresh_hm = in_file_h5.create_carray(
-            Scurves_Measurments, name='threshold_hm', title='numver of pix in bins/scan param', obj=pix_scan_hist)
+        scurve_thresh_hm = in_file_h5.create_carray(Scurves_Measurments, name='threshold_hm',
+                                                    title='numver of pix in bins/scan param', obj=pix_scan_hist)
 
         # scurve_hist[:]=scurve_formatted
 
@@ -757,6 +779,24 @@ def gauss(x_data, *parameters):
     return A_gauss * np.exp(-(x_data - mu_gauss)**2 / (2. * sigma_gauss**2))
 
 
+def gauss_lin(x_data, *parameters):
+    """Gauss function"""
+    A_gauss, mu_gauss, sigma_gauss, m, b = parameters
+    return A_gauss * np.exp(-(x_data - mu_gauss)**2 / (2. * sigma_gauss**2)) + m * x_data + b
+
+
+def double_gauss(x_data, *parameters):
+    """Gauss function"""
+    A_gauss1, mu_gauss1, sigma_gauss1, A_gauss2, mu_gauss2, sigma_gauss2 = parameters
+    return A_gauss1 * np.exp(-(x_data - mu_gauss1)**2 / (2. * sigma_gauss1**2)) + A_gauss2 * np.exp(-(x_data - mu_gauss2)**2 / (2. * sigma_gauss2**2))
+
+
+def double_gauss_lin(x_data, *parameters):
+    """Gauss function"""
+    A_gauss1, mu_gauss1, sigma_gauss1, A_gauss2, mu_gauss2, sigma_gauss2, m, b = parameters
+    return A_gauss1 * np.exp(-(x_data - mu_gauss1)**2 / (2. * sigma_gauss1**2)) + A_gauss2 * np.exp(-(x_data - mu_gauss2)**2 / (2. * sigma_gauss2**2)) + m * x_data + b
+
+
 def fit_gauss(x_data, y_data, params_guess=None):
     """Fit gauss"""
     # params_guess -> ndarray
@@ -765,19 +805,76 @@ def fit_gauss(x_data, y_data, params_guess=None):
     y_maxima = x_data[np.where(y_data[:] == np.max(y_data))[0]]
     if not params_guess:
         params_guess = np.array([np.max(y_data), y_maxima[0], np.std(x_data)])  # np.mean(y_data)
-    logging.info('Params guessed: %s ', str(params_guess))
+#     logging.info('Params guessed: %s ', str(params_guess))
     try:
         params_from_fit = curve_fit(gauss, x_data, y_data, p0=params_guess)
-        logging.info('Fit-params-gauss: %s %s %s ', str(params_from_fit[0][0]), str(
-            params_from_fit[0][1]), str(params_from_fit[0][2]))
+#         logging.info('Fit-params-gauss: %s %s %s ', str(params_from_fit[0][0]), str(
+#             params_from_fit[0][1]), str(params_from_fit[0][2]))
     except RuntimeError:
-        logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
-            x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
+        #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
+        #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
         return params_guess[0], params_guess[1], params_guess[2]
     A_fit = params_from_fit[0][0]
     mu_fit = params_from_fit[0][1]
     sigma_fit = np.abs(params_from_fit[0][2])
     return A_fit, mu_fit, sigma_fit
+
+
+def fit_gauss_lin(x_data, y_data, params_guess):
+    """Fit double gauss function"""
+    # params_guess -> ndarray
+    x_data = np.array(x_data)
+    y_data = np.array(y_data)
+
+    try:
+        popt, _ = curve_fit(gauss_lin, x_data, y_data, p0=params_guess)
+    except RuntimeError:
+        #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
+        #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
+        return params_guess
+#     A_fit = params_from_fit[0][0]
+#     mu_fit = params_from_fit[0][1]
+#     sigma_fit = np.abs(params_from_fit[0][2])
+    return popt
+
+
+def fit_double_gauss(x_data, y_data, params_guess, bounds=None):
+    """Fit double gauss function"""
+    # params_guess -> ndarray
+    x_data = np.array(x_data)
+    y_data = np.array(y_data)
+
+    try:
+        if bounds:
+            popt, _ = curve_fit(double_gauss, x_data, y_data, p0=params_guess, bounds=bounds)
+        else:
+            popt, _ = curve_fit(double_gauss, x_data, y_data, p0=params_guess)
+    except RuntimeError:
+        #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
+        #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
+        return params_guess
+#     A_fit = params_from_fit[0][0]
+#     mu_fit = params_from_fit[0][1]
+#     sigma_fit = np.abs(params_from_fit[0][2])
+    return popt
+
+
+def fit_double_gauss_lin(x_data, y_data, params_guess):
+    """Fit double gauss function"""
+    # params_guess -> ndarray
+    x_data = np.array(x_data)
+    y_data = np.array(y_data)
+
+    try:
+        popt, _ = curve_fit(double_gauss_lin, x_data, y_data, p0=params_guess)
+    except RuntimeError:
+        #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
+        #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
+        return params_guess
+#     A_fit = params_from_fit[0][0]
+#     mu_fit = params_from_fit[0][1]
+#     sigma_fit = np.abs(params_from_fit[0][2])
+    return popt
 
 
 if __name__ == "__main__":

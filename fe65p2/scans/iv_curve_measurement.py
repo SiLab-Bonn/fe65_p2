@@ -32,7 +32,7 @@ local_configuration = {
 
     # scan from val1(V) to val2(V) with steps of val3(V)
     # will start to run into the breakdown at -345
-    "scan_range": [300, 400, 5],
+    "scan_range": [0, 400, 2.5],
     "current_limit": 0.000105  # set to 0.000105 for machine to work better...sometimes
 }
 
@@ -53,7 +53,7 @@ class IVCurveMeasurement(ScanBase):
 
         try:
             sourcemeter_dut = Dut(ScanBase.get_basil_dir(self) +
-                                  '/examples/lab_devices/keithley2410_pyserial.yaml')
+                                  '/examples/lab_devices/keithley2400_pyserial.yaml')
             sourcemeter_dut.init()
             # logging.info('Connected to ' +
             #              str(sourcemeter_dut['Sourcemeter'].get_info()))
@@ -69,14 +69,15 @@ class IVCurveMeasurement(ScanBase):
                 return cur_below_0(float(curr_spt[1]))
             else:
                 return curr
-        sourcemeter_dut['Sourcemeter'].set_voltage(-250)
-        time.sleep(1.0)
-        self.dut.set_for_configuration()
-        self.set_local_config()
-        self.dut.start_up()
+
+#         sourcemeter_dut['Sourcemeter'].set_voltage(0)
+#         time.sleep(1.0)
+#         self.dut.set_for_configuration()
+#         self.set_local_config()
+#         self.dut.start_up()
         repeat_command = kwargs.get('repeat_command', 1)
 
-        scan_range = kwargs.get('scan_range', [100, 300, 1])
+        scan_range = kwargs.get('scan_range', [0, 400, 5])
         print scan_range
         scan_range = np.arange(scan_range[0], scan_range[1], scan_range[2])
         repeat_list = np.arange(0, repeat_command, 1)

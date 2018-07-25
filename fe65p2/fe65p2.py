@@ -78,9 +78,7 @@ def _interpret_raw_data(data, pix_data):
                         pix_data[irec].row = (row % 32) * 2
                     else:
                         pix_data[irec].row = 63 - ((row % 32) * 2 + 1)
-
                     pix_data[irec].col = col * 4 + (row / 32) * 2
-
                     pix_data[irec].tot = totB
                     irec += 1
             else:
@@ -580,17 +578,17 @@ class fe65p2(Dut):
             for i in range(len(split[:-1])):
                 # print param[i], stops[i], len(split[i]), split[i]
                 int_pix_data = self.interpret_raw_data_w_tdc(split[i])
+#                 print int_pix_data['tdc']
                 int_pix_data['scan_param_id'][:] = param[i]
                 if len(ret):
                     ret = np.hstack((ret, int_pix_data))
-
                 else:
                     ret = int_pix_data
 
         else:
             pix_data = np.recarray((raw_data.shape[0] * 2), dtype=data_type)
             ret = _interpret_raw_data_w_tdc(raw_data, pix_data)
-
+#             print "ret", ret['tdc']
         return ret
 
     def interpret_raw_data_tlu(self, raw_data, meta_data=[]):
