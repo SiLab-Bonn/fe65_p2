@@ -276,7 +276,7 @@ def combi_calib_plots(h5_file):
     pass
 
 
-def tdc_src_spectrum(h5_file=None, hit_data=None, pixel_flav=None, src_name=None):
+def hitor_calibration(h5_file=None, hit_data=None, pixel_flav=None):
     try:
         hit_data = analysis.singular_hits_tdc_pix_flav(hit_data=hit_data)
         tdc_data = hit_data['tdc']
@@ -288,31 +288,95 @@ def tdc_src_spectrum(h5_file=None, hit_data=None, pixel_flav=None, src_name=None
             hit_data = analysis.singular_hits_tdc_pix_flav(hit_data=hit_data)
             scan_args = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
             tdc_data = hit_data['tdc']
+            hitor_data = hit_data['tot']
+
+    x = np.arange(0.001, 1.21, 0.01)
+    tdc_avg = []
+    tot_avg = []
+    tdc_err = []
+    tot_err = []
+    for i in len(x):
+        tdc_avg.append(np.mean(hit_data[hit_data['scan_param_id'] == i]['tdc']))
+        tdc_err.append(np.std(hit_data[hit_data['scan_param_id'] == i]['tdc']))
+        tot_avg.append(np.mean(hit_data[hit_data['scan_param_id'] == i]['tot']))
+        tot_err.append(np.std(hit_data[hit_data['scan_param_id'] == i]['tot']))
     # fig1 -> spectrum of data (fit to come from analysis later
     print tdc_data.shape
     fig1 = Figure()
     _ = FigureCanvas(fig1)
     ax1 = fig1.add_subplot(111)
-    bar_data, bins = np.histogram(tdc_data, (max(tdc_data) - min(tdc_data)) / 1,
-                                  range=(min(tdc_data), max(tdc_data)))
-
-    bin_left = bins[:-1]
-    ax1.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
-    if pixel_flav and src_name:
-        ax1.set_title("Spectrum of %s\n Pixel Flavor: %s" % (str(src_name), str(pixel_flav)))
-    elif src_name:
-        ax1.set_title("Spectrum of %s" % str(src_name))
-    elif pixel_flav:
-        ax1.set_title("Spectrum of Source\n Pixel: %s" % str(pixel_flav))
-    else:
-        ax1.set_title("Spectrum of Source")
-    ax1.set_xlabel("TDC channel")
-    ax1.set_ylabel("Counts")
+    x = np.arange(0.001, 1.21, 0.01)
+    ax1.errorbar(x, tdc_avg, yerr=tdc_err)
+    ax1.set_ylabel('TDC channel')
+    ax1.set_xlabel('Injected Charge (V)')
 #     ax1.set_yscale('log')
     ax1.grid()
+
+    ax2 = fig1.add_subplot(111)
+    ax2 = ax1.twinx()
+    ax2.errorbar(x, tot_avg, yerr=tot_err)
+    ax2.set_ylabel('ToT channel')
     fig1.tight_layout()
     print"passed spectrum, counts:", tdc_data.shape[0]
     return fig1
+
+
+def tdc_src_spectrum(h5_file=None, hit_data=None, pixel_list=None, src_name=None):
+    try:
+        hit_data = analysis.singular_hits_tdc_pix_flav(hit_data=hit_data)
+
+    except:
+        with tb.open_file(h5_file, 'r+') as in_file_h5:
+            meta_data = in_file_h5.root.meta_data[:]
+            raw_data = in_file_h5.root.raw_data[:]
+            hit_data = in_file_h5.root.hit_data[:]
+            hit_data = analysis.singular_hits_tdc_pix_flav(hit_data=hit_data)
+            scan_args = yaml.load(in_file_h5.root.meta_data.attrs.kwargs)
+    # fig1 -> spectrum of data (fit to come from analysis later
+    fig1 = Figure()
+    _ = FigureCanvas(fig1)
+    ax1 = fig1.add_subplot(111)
+    fig_list = []
+    if pixel_list:
+        for pix in pixel_list:
+            print pix
+            hit_data2 = hit_data[(hit_data['col'] == pix[0]) & (hit_data['row'] == pix[1])]
+            tdc_data = hit_data2['tdc']
+            bar_data, bins = np.histogram(tdc_data, (max(tdc_data) - min(tdc_data)) / 1,
+                                          range=(min(tdc_data), max(tdc_data)))
+
+            bin_left = bins[:-1]
+            fig1 = Figure()
+            _ = FigureCanvas(fig1)
+            ax1 = fig1.add_subplot(111)
+            ax1.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
+            if src_name:
+                ax1.set_title("Spectrum of %s\n Pixel: (%s,%s)" % (str(src_name), str(pix[0]), str(pix[1])))
+            ax1.set_xlabel("TDC channel")
+            ax1.set_ylabel("Counts")
+            ax1.grid()
+            fig1.tight_layout()
+            fig_list.append(fig1)
+            print"passed spectrum for ", str(pix[0]), str(pix[1]), ", counts:", tdc_data.shape[0]
+    else:
+        fig1 = Figure()
+        _ = FigureCanvas(fig1)
+        tdc_data = hit_data['tdc']
+        bar_data, bins = np.histogram(tdc_data, (max(tdc_data) - min(tdc_data)) / 1,
+                                      range=(min(tdc_data), max(tdc_data)))
+
+        bin_left = bins[:-1]
+        ax1.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
+        ax1.set_title("Spectrum of Source")
+        ax1.set_xlabel("TDC channel")
+        ax1.set_ylabel("Counts")
+    #     ax1.set_yscale('log')
+        ax1.grid()
+        fig1.tight_layout()
+        fig_list.append(fig1)
+
+    print"passed spectrum, counts:", tdc_data.shape[0]
+    return fig_list
 
 
 def pix_inj_calib_lines(h5_file):
