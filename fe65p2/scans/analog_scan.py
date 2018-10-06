@@ -16,13 +16,13 @@ import os
 
 local_configuration = {
     "mask_steps": 4,
-    "repeat_command": 1,
+    "repeat_command": 10,
 
     # DAC parameters
     "PrmpVbpDac": 36,
     "vthin1Dac": 110,
     "vthin2Dac": 0,
-    "vffDac": 24,
+    "vffDac": 42,
     "PrmpVbnFolDac": 51,
     "vbnLccDac": 1,
     "compVbnDac": 25,

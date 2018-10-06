@@ -63,7 +63,7 @@ local_configuration = {
     #   thrs scan
     "mask_steps": 4,
     "repeat_command": 100,
-    "inj_electrons": 1950,
+    "inj_electrons": 2000,
     "scan_range": [60, 160, 2],  # this is the vth1 scan range
     # bare chip mask: '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180115_174703_noise_tuning.h5',
     "mask_filename": '',  # '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/20180116_091958_noise_tuning.h5',

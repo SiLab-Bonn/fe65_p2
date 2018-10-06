@@ -32,6 +32,9 @@ from scan_base import ScanBase
 import fe65p2
 import matplotlib.pyplot as plt
 from testbeam_analysis.tools import analysis_utils
+import matplotlib
+
+matplotlib.rcParams.update({'font.size': 9})
 
 
 def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_h5, eff_binning=[64, 64]):
@@ -46,12 +49,8 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
     sigma_y = resY_fit_results[2]
 
     # have the error on the track fits in um -> will cut the pixels within 2 sigma :/
-
     one_side_pix_to_ignore_x = round((sigma_x * 2 / 50. - 1.), 0)  # cuts 2 * sigma and then converts to a number of pixels
-
     one_side_pix_to_ignore_y = round((sigma_y * 2 / 50. - 1.), 0)  # cuts 2 * sigma and then converts to a number of pixels
-
-    # print one_side_pix_to_ignore_x, one_side_pix_to_ignore_y
 
     with tb.open_file(eff_h5_file, 'r+') as eff_in_file:
         eff_data = eff_in_file.root.DUT_1.Efficiency[:]
@@ -93,8 +92,9 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
         tune_dis_mask[noise_mask.reshape(4096) == True] = True
         man_dis_mask[man_disabled] = True
         occ_0_mask[occ_0] = True
-        print "tuned to 31:\n", np.where(mask_tdac == 31)
-        print "\ntuned to 0:\n", np.where(mask_tdac == 0)
+#         print "tuned to 31:\n", np.where(mask_tdac == 31)
+#         print "\ntuned to 0:\n", np.where(mask_tdac == 0)
+
         print "\ntuned:\n", np.where(tune_dis_mask.reshape(64, 64) == True)
         print "\nmanual:\n", np.where(man_dis_mask.reshape(64, 64) == True)
         print "\nocc low:\n", np.where(occ_0_mask.reshape(64, 64) == True)
@@ -256,6 +256,7 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
 #     fe7_mask[4095 - (4096 / 8):] = False
 #     fe7_mask = np.reshape(fe7_mask, (64, 64))
 #     eff_data[fe7_mask == False] = 0
+
     eff_data[(edges_list[0], edges_list[1])] = 0
     eff_data[(eff_low_w_surround[0], eff_low_w_surround[1])] = 0
     eff_avg = analysis_utils.get_mean_efficiency(passing_tracks[eff_mask == True], total_tracks[eff_mask == True])
@@ -268,25 +269,19 @@ def overlay_eff_hm_w_disabled_pix(fe65p2_h5_file, eff_h5_file,  res_file, noisy_
     ax3 = fig3.add_subplot(111)
     ax3.grid()
 
-    # print type(eff_data)
-    # print eff_data.shape
-    #eff_data[(eff_low_w_surround[1], eff_low_w_surround[0])] = 0
     print "cuts passing tracks: ", sum(passing_tracks[eff_data != 0]), "total tracks:", sum(total_tracks[eff_data != 0])
     print 'mask passing', sum(passing_tracks[eff_mask == True]), "total tracks:", sum(total_tracks[eff_mask == True])
-#     print analysis_utils.get_mean_efficiency(passing_tracks[eff_data != 0], total_tracks[eff_data != 0])
     print "eff_after cuts", eff_avg[0]
-    # int((100 - round(min(eff_data[eff_data != 0]) - 1, 0)) * 3)
     eff_cut_hist, bins = np.histogram(eff_data, 100, range=(85, 100))
     bin_left = bins[:-1]
     perc = len(np.nonzero(eff_data)[0]) / 4096. * 100
     perc_inc_list.append(perc)
-    ax3.set_title('Percent Included: %s Mean Efficiency after cuts: %s' %
+    ax3.set_title('Percent Included: %s \nMean Efficiency after cuts: %s' %
                   (round(perc, 5), str(round(eff_avg[0] * 100, 5))))
     ax3.set_xlabel('Efficiency')
     ax3.set_ylabel('Number of pixels')
     ax3.bar(left=bin_left, height=eff_cut_hist, width=np.diff(bin_left)[0], align="edge")
     ax3.set_yscale('log')
-    # eff_data_cut = eff_data[][]
     fig1.tight_layout()
 
     return fig1, fig4, fig2, fig3, eff_data, eff_list, perc_inc_list
@@ -299,31 +294,12 @@ def eff_pixel_flavor_per_type(eff_data, type_cords_list, flav_name, eff_h5_file,
         passing_tracks = in_file.root.DUT_1.Passing_tracks[:]
 
     eff_mask = np.full((64, 64), False, np.bool)
-
-    out_list = []
-    out_list_x = []
-    out_list_y = []
-    for x in range(type_cords_list[0][0], type_cords_list[1][0] + 1):
-        for y in range(type_cords_list[0][1], type_cords_list[1][1] + 1):
-            out_list_x.append(x)
-            out_list_y.append(y)
-    out_list.append(out_list_x)
-    out_list.append(out_list_y)
-
-    eff_mask[(out_list[0], out_list[1])] = True
+    eff_mask[type_cords_list[0][0]:type_cords_list[1][0], type_cords_list[0][1]:type_cords_list[1][1]] = True
+    true_coords = np.where((eff_mask == True))
 
     if type_cords_list_2:
         eff_mask2 = np.full((64, 64), False, np.bool)
-        out_list2 = []
-        out_list2_x = []
-        out_list2_y = []
-        for x in range(type_cords_list_2[0][0], type_cords_list_2[1][0] + 1):
-            for y in range(type_cords_list_2[0][1], type_cords_list_2[1][1] + 1):
-                out_list2_x.append(x)
-                out_list2_y.append(y)
-        out_list2.append(out_list2_x)
-        out_list2.append(out_list2_y)
-        eff_mask2[(out_list2[0], out_list2[1])] = True
+        eff_mask2[type_cords_list_2[0][0]:type_cords_list_2[1][0], type_cords_list_2[0][1]:type_cords_list_2[1][1]] = True
 
         true_coords = np.where((eff_mask == True) & (eff_mask2 == True))
 
@@ -332,9 +308,9 @@ def eff_pixel_flavor_per_type(eff_data, type_cords_list, flav_name, eff_h5_file,
         total_tracks_in_sel = total_tracks[true_coords[0], true_coords[1]]
         print flav_name, flav_name_2
     else:
-        out_eff = eff_data[out_list[0], out_list[1]]
-        passing_tracks_in_sel = passing_tracks[out_list[0], out_list[1]]
-        total_tracks_in_sel = total_tracks[out_list[0], out_list[1]]
+        out_eff = eff_data[eff_mask == True]
+        passing_tracks_in_sel = passing_tracks[eff_mask == True]
+        total_tracks_in_sel = total_tracks[eff_mask == True]
         print flav_name
 
     num_pix = len(np.nonzero(out_eff)[0])
@@ -356,7 +332,7 @@ def eff_pixel_flavor_per_type(eff_data, type_cords_list, flav_name, eff_h5_file,
         ax.set_title("Pixel Flavor: %s, Column Flavor %s\nPercent Included: %s Efficiency: %s" %
                      (flav_name, flav_name_2, str(round(perc, 5)), str(round(eff_avg[0] * 100, 5))))
     else:
-        ax.set_title("Flavor: %s Percent Included: %s Efficiency: %s" %
+        ax.set_title("Flavor: %s Percent Included: %s \nEfficiency: %s" %
                      (flav_name, str(round(perc, 5)), str(round(eff_avg[0] * 100, 5))))
     ax.set_xlabel('Efficiency')
     ax.set_ylabel('Number of pixels')
@@ -437,36 +413,27 @@ def flavor_controller(folder_name=None):
     chdir("/media/daniel/Maxtor/fe65p2_testbeam_april_2018/" + folder_name)
     fe65p2_h5_file = glob.glob('*_tlu_test_scan.h5')
     noisy_h5 = glob.glob('*_tlu_test_scan_anal_noisy_pixel_mask.h5')
-    eff_h5_file = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/" + folder_name + "/analyzed/Efficiency.h5"
+    eff_h5_file = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/" + folder_name + "/analyzed/Efficiency2.h5"
     res_file = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/" + folder_name + "/analyzed/Residuals_prealigned.h5"
 
-#     edges = [[0, 0],
-#              [0, 63],
-#              [63, 0],
-#              [63, 63],
-#              [0, 0],
-#              [63, 0],
-#              [0, 63],
-#              [63, 63]]
+    nw15 = [[2, 2], [31, 7]]
+    nw20 = [[2, 8], [31, 15]]
+    nw25 = [[2, 16], [31, 23]]
+    nw30 = [[2, 24], [31, 61]]
 
-    nw15 = [[1, 1], [31, 8]]
-    nw20 = [[1, 9], [31, 16]]
-    nw25 = [[1, 17], [31, 24]]
-    nw30 = [[1, 25], [31, 62]]
+    dnw15 = [[34, 2], [61, 7]]
+    dnw20 = [[34, 8], [61, 15]]
+    dnw25 = [[34, 16], [61, 23]]
+    dnw30 = [[34, 24], [61, 61]]
 
-    dnw15 = [[32, 1], [62, 8]]
-    dnw20 = [[32, 9], [62, 16]]
-    dnw25 = [[32, 17], [62, 24]]
-    dnw30 = [[32, 25], [62, 62]]
-
-    fe0 = [[0, 0], [7, 63]]
-    fe1 = [[8, 0], [15, 63]]
-    fe2 = [[16, 0], [23, 63]]
-    fe3 = [[24, 0], [31, 63]]
-    fe4 = [[32, 0], [39, 63]]
-    fe5 = [[40, 0], [47, 63]]
-    fe6 = [[48, 0], [55, 63]]
-    fe7 = [[56, 0], [63, 63]]
+    fe0 = [[2, 2], [6, 61]]
+    fe1 = [[9, 2], [14, 61]]
+    fe2 = [[17, 2], [22, 61]]
+    fe3 = [[25, 2], [30, 61]]
+    fe4 = [[33, 2], [38, 61]]
+    fe5 = [[41, 2], [46, 61]]
+    fe6 = [[49, 2], [54, 61]]
+    fe7 = [[57, 2], [61, 61]]
 
     type_name_list = ['nw15', 'nw20', 'nw25', 'nw30', 'dnw15', 'dnw20', 'dnw25', 'dnw30',
                       'CPL000', 'CPL001', 'CPL011', 'CPL001RH', 'CPL100', 'CPL101', 'CPL101RH', 'CPL101']
@@ -474,6 +441,14 @@ def flavor_controller(folder_name=None):
 
     fe_name_list = ['CPL000', 'CPL001', 'CPL011', 'CPL001RH', 'CPL100', 'CPL101', 'CPL101RH', 'CPL101']
     fe_list = [fe0, fe1, fe2, fe3, fe4, fe5, fe6, fe7]
+
+    type_name_list_2 = ['nw15', 'nw20', 'nw25', 'nw30', 'dnw15', 'dnw20', 'dnw25', 'dnw30',
+                        'CPL000', 'CPL001', 'CPL011', 'CPL001RH', 'CPL100', 'CPL101', 'CPL101RH']
+    type_list_2 = [nw15, nw20, nw25, nw30, dnw15, dnw20, dnw25, dnw30, fe0, fe1, fe2, fe3, fe4, fe5, fe6]
+
+    fe_name_list_2 = ['CPL000', 'CPL001', 'CPL011', 'CPL001RH', 'CPL100', 'CPL101', 'CPL101RH']
+    fe_list_2 = [fe0, fe1, fe2, fe3, fe4, fe5, fe6]
+
     pixel_flav_list = ['nw15', 'nw20', 'nw25', 'nw30', 'dnw15', 'dnw20', 'dnw25', 'dnw30']
     pixel_list = [nw15, nw20, nw25, nw30, dnw15, dnw20, dnw25, dnw30]
 
@@ -489,7 +464,7 @@ def flavor_controller(folder_name=None):
 #                                                                                                                    eff_h5_file=eff_h5_file,
 #                                                                                                                    res_file=res_file,
 #                                                                                                                    noisy_h5=noisy_h5[0])
-    pdfName = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/" + folder_name + '/eff_w_cuts_by_flavor.pdf'
+    pdfName = "/media/daniel/Maxtor/fe65p2_testbeam_april_2018/" + folder_name + '/eff_w_cuts_by_flavor_new_flavors_500_w7.pdf'
     pp = PdfPages(pdfName)
     pp.savefig(overlay_hm, layout='tight')
     plt.clf()
@@ -499,44 +474,45 @@ def flavor_controller(folder_name=None):
     plt.clf()
     pp.savefig(fig3, layout='tight')
 
-#     flav_eff_list = []
-#     flav_perc_inc_list = []
-#     for num, flav in enumerate(type_name_list):
-#         try:
-#             fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_list[num], flav, eff_h5_file=eff_h5_file)
-#             flav_eff_list.append(eff)
-#             flav_perc_inc_list.append(perc)
-#             plt.clf()
-#             pp.savefig(fig, layout='tight')
+    flav_eff_list = []
+    flav_perc_inc_list = []
+    for num, flav in enumerate(type_name_list):
+        #         try:
+        fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_list[num], flav, eff_h5_file=eff_h5_file)
+        flav_eff_list.append(eff)
+        flav_perc_inc_list.append(perc)
+        plt.clf()
+        pp.savefig(fig, layout='tight')
 #         except:
 #             print 'failed to make efficiency plots for ', flav
-#
-#     for num_pix in range(4):
-#         for num_col in range(4):
-#             try:
-#                 fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
-#                                                            type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
-#                 flav_eff_list.append(eff)
-#                 flav_perc_inc_list.append(perc)
-#                 plt.clf()
-#                 pp.savefig(fig, layout='tight')
-#             except:
-#                 print "failed to make efficiency plots for ", num_col, num_pix
-#
-#     for num_pix in range(4, 8):
-#         for num_col in range(4, 8):
-#             try:
-#                 fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
-#                                                            type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
-#                 flav_eff_list.append(eff)
-#                 flav_perc_inc_list.append(perc)
-#                 plt.clf()
-#                 pp.savefig(fig, layout='tight')
-#             except:
-#                 print "failed to make efficiency plots for ", num_col, num_pix
+
+    for num_pix in range(4):
+        for num_col in range(4):
+            try:
+                fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
+                                                           type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
+                flav_eff_list.append(eff)
+                flav_perc_inc_list.append(perc)
+                plt.clf()
+                pp.savefig(fig, layout='tight')
+            except:
+                print "failed to make efficiency plots for ", num_col, num_pix
+
+    for num_pix in range(4, 8):
+        for num_col in range(4, 8):
+            try:
+                fig, eff, perc = eff_pixel_flavor_per_type(eff_data, type_cords_list=pixel_list[num_pix], flav_name=pixel_flav_list[num_pix], eff_h5_file=eff_h5_file,
+                                                           type_cords_list_2=fe_list[num_col], flav_name_2=fe_name_list[num_col])
+                flav_eff_list.append(eff)
+                flav_perc_inc_list.append(perc)
+                plt.clf()
+                pp.savefig(fig, layout='tight')
+            except Exception as e:
+                print e
+                print "failed to make efficiency plots for ", num_col, num_pix
 
     pp.close()
-#     return eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list
+    return eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list
 
 
 if __name__ == "__main__":
@@ -586,38 +562,37 @@ if __name__ == "__main__":
     vth1_list = [43, 43, 43, 43, 43, 43, 43, 43, 43, 43, 43, 63, 83, 103, 103, 123, 143, 173,
                  173, 203, 143, 93, 33, 33, 93, 143, 203, 103, 53, 53, 153, 103, 203, 53, 153, 103, 103]
 
-#     chdir("/media/daniel/Maxtor/fe65p2_testbeam_april_2018/")
-#     with tb.open_file('/media/daniel/Maxtor/fe65p2_testbeam_april_2018/efficiency_over_all_runs.h5', 'w') as out_file_h5:
-#         eff_table = out_file_h5.create_table(out_file_h5.root, name='eff_table', description=dict, title='eff_table')
-    for x, num in enumerate(run_list):
-        #     for num in [5]:
-        folder_name = str("run") + str(num)
-        print folder_name, run_list[x], bias_list[x], vth1_list[x]
-        eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list = flavor_controller(folder_name)
+    chdir("/media/daniel/Maxtor/fe65p2_testbeam_april_2018/")
+    with tb.open_file('/media/daniel/Maxtor/fe65p2_testbeam_april_2018/efficiency_over_all_runs_w7_new_sections_500_test.h5', 'w') as out_file_h5:
+        eff_table = out_file_h5.create_table(out_file_h5.root, name='eff_table', description=dict, title='eff_table')
+        for x, num in enumerate(run_list):
+            #         for x in [7]:
+            folder_name = str("run") + str(num)
+            print folder_name, run_list[x], bias_list[x], vth1_list[x]
+            eff_list, perc_inc_list, flav_eff_list, flav_perc_inc_list = flavor_controller(folder_name)
 
-#         eff_table.row['run_num'] = run_list[x]
-#         eff_table.row['bias'] = bias_list[x] * -1
-#         eff_table.row['vth1'] = vth1_list[x]
-#
-#         eff_table.row['total'] = eff_list[0][0] * 100
-#         eff_table.row['total_errm'] = eff_list[0][1] * 100
-#         eff_table.row['total_errp'] = eff_list[0][2] * 100
-#         eff_table.row['perc_inc_total'] = perc_inc_list[0]
-#         eff_table.row['cuts'] = eff_list[1][0] * 100
-#         eff_table.row['cuts_errm'] = eff_list[1][1] * 100
-#         eff_table.row['cuts_errp'] = eff_list[1][2] * 100
-#         eff_table.row['perc_inc_cuts'] = perc_inc_list[1]
-#
-#         j = 0
-#         for i in names[2:]:
-#             eff_table.row[i] = flav_eff_list[j][0] * 100
-#             eff_table.row[i + '_errm'] = flav_eff_list[j][1] * 100
-#             eff_table.row[i + '_errp'] = flav_eff_list[j][2] * 100
-#             eff_table.row['perc_inc_' + i] = flav_perc_inc_list[j]
-#             j += 1
-#
-#         eff_table.row.append()
-#         eff_table.flush()
-        break
+            eff_table.row['run_num'] = num
+            eff_table.row['bias'] = bias_list[x] * -1
+            eff_table.row['vth1'] = vth1_list[x]
+
+            eff_table.row['total'] = eff_list[0][0] * 100
+            eff_table.row['total_errm'] = eff_list[0][1] * 100
+            eff_table.row['total_errp'] = eff_list[0][2] * 100
+            eff_table.row['perc_inc_total'] = perc_inc_list[0]
+            eff_table.row['cuts'] = eff_list[1][0] * 100
+            eff_table.row['cuts_errm'] = eff_list[1][1] * 100
+            eff_table.row['cuts_errp'] = eff_list[1][2] * 100
+            eff_table.row['perc_inc_cuts'] = perc_inc_list[1]
+
+            j = 0
+            for i in names[2:]:
+                eff_table.row[i] = flav_eff_list[j][0] * 100
+                eff_table.row[i + '_errm'] = flav_eff_list[j][1] * 100
+                eff_table.row[i + '_errp'] = flav_eff_list[j][2] * 100
+                eff_table.row['perc_inc_' + i] = flav_perc_inc_list[j]
+                j += 1
+
+            eff_table.row.append()
+            eff_table.flush()
 
     print "finished without errors"

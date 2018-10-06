@@ -117,7 +117,7 @@ class CrosstalkScan(ScanBase):
 
         mask_en = np.full([64, 64], True, dtype=np.bool)
         mask_tdac = np.full([64, 64], 15., dtype=np.uint8)
-        mask_hitor = np.full([64, 64], True, dtype=np.bool)
+        mask_hitor = np.full([64, 64], False, dtype=np.bool)
         mask_inj = np.full([64, 64], True, dtype=np.bool)
 
         file0 = kwargs.get("noise_col0")
@@ -135,7 +135,7 @@ class CrosstalkScan(ScanBase):
         logging.info("vth1: %s" % str(vth1))
         self.dut.write_en_mask(mask_en_from_file)
         self.dut.write_tune_mask(mask_tdac)
-        self.dut.write_hitor_mask(mask_en_from_file)
+        self.dut.write_hitor_mask(mask_hitor)
 
         pulse_width = 30000  # unit: ns
         # this seems to be working OK problem is probably bad injection on GPAC
@@ -185,6 +185,7 @@ class CrosstalkScan(ScanBase):
                     mask_inj = mask_inj.reshape(64, 64)
                     mask_en[(mask_inj == True)] = False
 
+                    self.dut.write_hitor_mask(mask_en)
                     self.dut.write_en_mask(mask_en)
                     self.dut.write_inj_mask(mask_inj)
 
@@ -265,7 +266,7 @@ class CrosstalkScan(ScanBase):
 
             in_file_h5.create_carray(in_file_h5.root, name='HistOcc', title='Occupancy Histogram', obj=occ)
 
-            print np.where(occ != 0)
+            print np.where(occ.reshape(4096) != 0)
 
             # self.meta_data_table.attrs.dac_status
         analysis.analyze_threshold_scan(h5_filename)
@@ -285,23 +286,23 @@ class CrosstalkScan(ScanBase):
         plt.clf()
         pp.savefig(noisehm2)
         plt.clf()
-        singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, noiseFlav, chi2plot = DGC_plotting.scan_pix_hist(h5_filename)
-        pp.savefig(singlePixPolt, layout="tight")
-        plt.clf()
-        pp.savefig(thresHM, layout="tight")
-        plt.clf()
-        pp.savefig(thresVsPix, layout="tight")
-        plt.clf()
-        pp.savefig(thresDist, layout="tight")
-        plt.clf()
-        pp.savefig(noiseHM, layout="tight")
-        plt.clf()
-        pp.savefig(noiseDist, layout="tight")
-        plt.clf()
-        pp.savefig(noiseFlav, layout="tight")
-        plt.clf()
-        pp.savefig(chi2plot, layout="tight")
-        plt.clf()
+#         singlePixPolt, thresHM, thresVsPix, thresDist, noiseHM, noiseDist, noiseFlav, chi2plot = DGC_plotting.scan_pix_hist(h5_filename)
+#         pp.savefig(singlePixPolt, layout="tight")
+#         plt.clf()
+#         pp.savefig(thresHM, layout="tight")
+#         plt.clf()
+#         pp.savefig(thresVsPix, layout="tight")
+#         plt.clf()
+#         pp.savefig(thresDist, layout="tight")
+#         plt.clf()
+#         pp.savefig(noiseHM, layout="tight")
+#         plt.clf()
+#         pp.savefig(noiseDist, layout="tight")
+#         plt.clf()
+#         pp.savefig(noiseFlav, layout="tight")
+#         plt.clf()
+#         pp.savefig(chi2plot, layout="tight")
+#         plt.clf()
         t_dac_plot = DGC_plotting.t_dac_plot(h5_filename)
         pp.savefig(t_dac_plot)
         pp.close()

@@ -150,22 +150,18 @@ class TDACScan(ScanBase):
                     self.dut.set_for_configuration()
 
                     mask_inj[:, :] = False
-
                     for qcol in range(16):
                         mask_inj[qcol * 4:(qcol + 1) * 4 + 1, i::mask_steps] = True
                     self.dut.write_inj_mask(mask_inj)
-
                     self.set_local_config(vth1=vth1_from_scan)
 
                     self.dut['inj'].start()
-                    time.sleep(0.3)
 
                     while not self.dut['inj'].is_done():
                         time.sleep(0.05)
 
                     while not self.dut['trigger'].is_done():
                         time.sleep(0.05)
-                    time.sleep(0.5)
 
                     print "finished mask_step: ", i, " words recieved: ", self.fifo_readout.get_record_count()
         scan_results = self.h5_file.create_group("/", 'scan_results', 'Scan Masks')

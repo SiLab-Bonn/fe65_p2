@@ -25,6 +25,8 @@ from math import ceil
 import csv
 import os
 
+mpl.rcParams.update({'font.size': 14})
+
 
 def read_file(filename_csv):
     # may need the 'rb' option to read the file in binary
@@ -45,13 +47,20 @@ def combine_and_plot():
     csv_name = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/iv_curve_data.csv'
     plot_min = []
     ax = plt.subplot(111)
-    # for i in [1, 3, 4, 5]:
-    for i in [2]:
+    errs = []
+    for i in [1, 2, 3, 4, 5]:
+        #     for i in [2]:
         csv_name = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/iv_curves/good_iv/iv_curve_data_chip' + str(i) + '.csv'
         meas_curr, curr_err, meas_volt = read_file(csv_name)
 
         # want to read in all of the files here
-        plt.errorbar(abs(meas_volt), abs(meas_curr), xerr=0., yerr=curr_err, fmt='o', markersize=2.5, label='Chip' + str(i))
+        plt.errorbar(abs(meas_volt), abs(meas_curr), xerr=0., yerr=curr_err, fmt='o', markersize=3, label='Chip' + str(i))
+        w = np.where(abs(meas_curr) > 10e-8)
+        print "breakdown points:", abs(meas_volt[w]), meas_curr[w], curr_err[w]
+        print "avg error", np.mean(curr_err), np.std(curr_err)
+        errs.extend(curr_err)
+
+    print "avg error", np.mean(errs), np.std(errs)
     ax.set_yscale("log")
     plt.grid(True)
 #     plt.ylim(min(plot_min) * 1e9 - 1e-8, 30)

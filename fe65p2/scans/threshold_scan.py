@@ -56,7 +56,7 @@ local_configuration = {
 class ThresholdScan(ScanBase):
     scan_id = "threshold_scan"
 
-    def scan(self, mask_steps=4, TDAC=16, scan_range=[0.0, 1.0, 0.02], repeat_command=1000, mask_filename='', **kwargs):
+    def scan(self, mask_steps=1, TDAC=16, scan_range=[0.0, 1.0, 0.02], repeat_command=1000, mask_filename='', **kwargs):
         '''Scan loop
         Parameters
         ----------
@@ -67,17 +67,18 @@ class ThresholdScan(ScanBase):
         TDAC : int
             initial pixel threshold value
         '''
-        # def load_vthin1Dac(mask):
-        #     if os.path.exists(mask):
-        #         in_file = tb.open_file(mask, 'r')
-        #         dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
-        #         vthrs1 = dac_status['vthin1Dac'] + 4
-        #         logging.info("Loaded vth1 from noise scan: %d", vthrs1)
-        #         return vthrs1
-        #     else:
-        #         return kwargs['vthin1Dac']
+#         def load_vthin1Dac(mask):
+#             if os.path.exists(mask):
+#                 in_file = tb.open_file(mask, 'r')
+#                 dac_status = yaml.load(in_file.root.meta_data.attrs.dac_status)
+#                 vthrs1 = dac_status['vthin1Dac'] + 4
+#                 logging.info(
+#                     "Loaded vth1 from noise scan + 10: %d", vthrs1 + 10)
+#                 return vthrs1 + 10
+#             else:
+#                 return kwargs['vthin1Dac']
 
-        #vth1 = load_vthin1Dac(mask_filename)
+#         vth1 = load_vthin1Dac(mask_filename)
         vth1 = kwargs.get("vthin1Dac", 100)
 
         inj_factor = 1.0
@@ -173,9 +174,11 @@ class ThresholdScan(ScanBase):
         self.dut['global_conf']['OneSr'] = 0
         self.dut.write_global()
         pulse_width = 800  # unit: ns
-        # this seems to be working OK problem is probably bad injection on GPAC usually +0
-        self.dut['inj'].set_delay(80000)  # 25ns per clock cycle
-        self.dut['inj'].set_width(1000)
+        # this seems to be working OK problem is probably bad injection on GPAC
+        # usually +0
+        self.dut['inj'].set_delay(
+            25 * pulse_width + 100)  # 25ns per clock cycle
+        self.dut['inj'].set_width(100)
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
@@ -212,6 +215,10 @@ class ThresholdScan(ScanBase):
                              k, idx + 1, len(scan_range))
                 pbar = ProgressBar(maxval=mask_steps).start()
                 for i in range(mask_steps):
+                    # look at bv mask for each step then maybe disable pixels around the injected ones
+                    # disabling solves the problem but it doesnt say anything about why it was happening
+                    # make sure to look at the bv mask before each injection
+                    # and see if any pixels are injected twice
                     self.dut.set_for_configuration()
 
                     self.dut['pixel_conf'][:] = bv_mask

@@ -88,16 +88,17 @@ class ScanBase(object):
     def get_basil_dir(self):
         return str(os.path.dirname(os.path.dirname(basil.__file__)))
 
-    def start(self, **kwargs):
+    def start(self, name=None, **kwargs):
 
         self._first_read = False
         self.scan_param_id = 0
-
-        filename = self.output_filename + '.h5'
+        if name:
+            filename = self.output_filename + str(name) + '.h5'
+        else:
+            filename = self.output_filename + '.h5'
         filter_raw_data = tb.Filters(
             complib='blosc', complevel=5, fletcher32=False)
-        self.filter_tables = tb.Filters(
-            complib='zlib', complevel=5, fletcher32=False)
+        self.filter_tables = tb.Filters(complib='zlib', complevel=5, fletcher32=False)
         self.h5_file = tb.open_file(filename, mode='w', title=self.scan_id)
         self.raw_data_earray = self.h5_file.create_earray(self.h5_file.root, name='raw_data', atom=tb.UIntAtom(),
                                                           shape=(0,), title='raw_data', filters=filter_raw_data)

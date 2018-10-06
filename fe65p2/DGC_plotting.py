@@ -22,6 +22,7 @@ from matplotlib.pyplot import cm
 from matplotlib.colors import LogNorm
 import matplotlib
 from scipy import optimize
+from scipy import signal
 
 
 # timewalk plotting not completed yet as i do not fully understand the
@@ -39,7 +40,7 @@ pixel_flav_dict = {'nw15': [[1, 1], [31, 8]],
                    'dnw20': [[32, 9], [62, 16]],
                    'dnw25': [[32, 17], [62, 24]],
                    'dnw30': [[32, 25], [62, 62]]}
-matplotlib.rcParams.update({'font.size': 14})
+matplotlib.rcParams.update({'font.size': 13})
 
 
 def plot_timewalk(h5_file_name):
@@ -276,9 +277,9 @@ def combi_calib_plots(h5_file):
     pass
 
 
-def hitor_calibration(h5_file=None, hit_data=None, pixel_flav=None):
+def hitor_calibration(h5_file=None, hit_data=None, pixel=None):
     try:
-        hit_data = analysis.singular_hits_tdc_pix_flav(hit_data=hit_data)
+        #         hit_data = analysis.singular_hits_tdc_pix_flav(hit_data=hit_data)
         tdc_data = hit_data['tdc']
     except:
         with tb.open_file(h5_file, 'r+') as in_file_h5:
@@ -290,12 +291,11 @@ def hitor_calibration(h5_file=None, hit_data=None, pixel_flav=None):
             tdc_data = hit_data['tdc']
             hitor_data = hit_data['tot']
 
-    x = np.arange(0.001, 1.21, 0.01)
     tdc_avg = []
-    tot_avg = []
     tdc_err = []
+    tot_avg = []
     tot_err = []
-    for i in len(x):
+    for i in np.unique(hit_data['scan_param_id']):
         tdc_avg.append(np.mean(hit_data[hit_data['scan_param_id'] == i]['tdc']))
         tdc_err.append(np.std(hit_data[hit_data['scan_param_id'] == i]['tdc']))
         tot_avg.append(np.mean(hit_data[hit_data['scan_param_id'] == i]['tot']))
@@ -305,8 +305,8 @@ def hitor_calibration(h5_file=None, hit_data=None, pixel_flav=None):
     fig1 = Figure()
     _ = FigureCanvas(fig1)
     ax1 = fig1.add_subplot(111)
-    x = np.arange(0.001, 1.21, 0.01)
-    ax1.errorbar(x, tdc_avg, yerr=tdc_err)
+    x = np.arange(0.001, 1.21, 0.025)
+    ax1.errorbar(x[min(np.unique(hit_data['scan_param_id'])):], tdc_avg, yerr=tdc_err, fmt='o', markersize=2)
     ax1.set_ylabel('TDC channel')
     ax1.set_xlabel('Injected Charge (V)')
 #     ax1.set_yscale('log')
@@ -314,7 +314,7 @@ def hitor_calibration(h5_file=None, hit_data=None, pixel_flav=None):
 
     ax2 = fig1.add_subplot(111)
     ax2 = ax1.twinx()
-    ax2.errorbar(x, tot_avg, yerr=tot_err)
+    ax2.errorbar(x[min(np.unique(hit_data['scan_param_id'])):], tot_avg, yerr=tot_err, fmt='ro', markersize=2)
     ax2.set_ylabel('ToT channel')
     fig1.tight_layout()
     print"passed spectrum, counts:", tdc_data.shape[0]
@@ -345,6 +345,7 @@ def tdc_src_spectrum(h5_file=None, hit_data=None, pixel_list=None, src_name=None
             bar_data, bins = np.histogram(tdc_data, (max(tdc_data) - min(tdc_data)) / 1,
                                           range=(min(tdc_data), max(tdc_data)))
 
+#             print signal.find_peaks_cwt(bar_data, np.arange(3, 15))
             bin_left = bins[:-1]
             fig1 = Figure()
             _ = FigureCanvas(fig1)
@@ -358,6 +359,7 @@ def tdc_src_spectrum(h5_file=None, hit_data=None, pixel_list=None, src_name=None
             fig1.tight_layout()
             fig_list.append(fig1)
             print"passed spectrum for ", str(pix[0]), str(pix[1]), ", counts:", tdc_data.shape[0]
+#             print
     else:
         fig1 = Figure()
         _ = FigureCanvas(fig1)
@@ -366,6 +368,7 @@ def tdc_src_spectrum(h5_file=None, hit_data=None, pixel_list=None, src_name=None
                                       range=(min(tdc_data), max(tdc_data)))
 
         bin_left = bins[:-1]
+        ax1 = fig1.add_subplot(111)
         ax1.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
         ax1.set_title("Spectrum of Source")
         ax1.set_xlabel("TDC channel")
@@ -717,7 +720,7 @@ def plot_tot_dist(h5_file_name):
         _ = FigureCanvas(fig)
         fig.clear()
         ax = fig.add_subplot(111)
-        ax.hist(hit_data_tot, bins=np.arange(min(hit_data_tot) - 0.5, max(hit_data_tot) + 1.5, 1))
+        ax.hist(hit_data_tot, bins=np.arange(0, 16, 1))
         ax.set_title('ToT Distribution')
         ax.set_xlabel('Units of 25ns')
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
@@ -729,25 +732,30 @@ def plot_tot_dist(h5_file_name):
         return fig
 
 
-def plot_lv1id_dist(h5_file_name, col=None, row=None):
+def plot_lv1id_dist(h5_file_name, col=None, row=None, hit_data=None, flav=None):
     with tb.open_file(h5_file_name, 'r') as in_file_h5:
-        hit_data = in_file_h5.root.hit_data[:]
+        if hit_data is None:
+            hit_data = in_file_h5.root.hit_data[:]
         hit_data_lv1id = hit_data['lv1id']
 
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
 #         ax.hist(hit_data_lv1id, 20, range=(-1.5, 17.5))
-        if col or row:
+        if col and row:
             hit_data_lv1id = hit_data['lv1id'][(hit_data['col'] == col) & (hit_data['row'] == row)]
 
         bar_data, bins = np.histogram(hit_data_lv1id, 16, range=(0, 16))
         print bar_data
         bin_left = bins[:-1]
-        ax.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="edge")
+        ax.bar(x=bin_left, height=bar_data, width=np.diff(bin_left)[0], align="center")
+        ax.set_xlabel('Relatibe BCID')
+        ax.set_ylabel('Count')
 
-        if col or row:
+        if col and row:
             ax.set_title('lv1id Dist, (%s, %s)' % (str(col), str(row)))
+        elif flav:
+            ax.set_title('lv1id Dist, %s' % flav)
         else:
             ax.set_title('lv1id Dist')
 
@@ -970,15 +978,15 @@ def pixel_noise_plots(h5_file_name):
 
         popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, thresh.mean(), thresh.std()), maxfev=1000)
         y_th = analysis.gauss(lnspc_th, *popt_th)
-        ax_ThresDist.plot(lnspc_th, y_th, label=("%s: $\mu$: %s \n$\sigma$: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                   (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+        ax_ThresDist.plot(lnspc_th, y_th, label=("%s: $\mu$: %s \n$\sigma$: %s" % (flav, (popt_th[1] * analysis.true_cap() * 1000).round(2),
+                                                                                   (popt_th[2] * analysis.true_cap() * 1000).round(2))))
         ax_ThresDist.legend(prop={'size': 7})
         print "Noise fit flavor ", flav, ": ", popt_th
-        print "Noise fit (electrons)flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
+        print "Noise fit (electrons)flavor ", flav, ": ", popt_th * analysis.true_cap() * 1000
 
     ticks = ax_ThresDist.get_xticks()
     bound = ax_ThresDist.get_xbound()
-    ax_ThresDist.set_xticklabels((analysis.cap_fac() * ticks * 1000).round())
+    ax_ThresDist.set_xticklabels((analysis.true_cap() * ticks * 1000).round())
     ax_ThresDist_2.set_xticks(ticks)
     ax_ThresDist_2.set_xbound(bound)
 #         ax_ThresDist_2.set_xticklabels((analysis.cap_fac() * ax_ThresDist.get_xticks() * 1000).round())
@@ -1101,7 +1109,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
 #         cmap.set_under(color='white')
         h = ax_thresHM.hist2d(x=(data['scan_param'] * scan_range[2]) + scan_range[0], y=data['count'], weights=data['value'],
                               bins=(max(data['scan_param']), max(data['count']) / 2), cmap=cmap, vmin=1, norm=LogNorm())
-        ax_thresHM.set_xticklabels((np.round(analysis.cap_fac() * 1000 * ax_thresHM.get_xticks()).astype(int)))
+        ax_thresHM.set_xticklabels((np.round(analysis.true_cap() * 1000 * ax_thresHM.get_xticks()).astype(int)))
         fig2.colorbar(h[3], ax=ax_thresHM, pad=0.01)
         ax_thresHM.grid()
         fig2.tight_layout()
@@ -1127,7 +1135,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         bound = ax_ThVsPx.get_ybound()
         ax_ThVsPx_2.set_yticks(ticks)
         ax_ThVsPx_2.set_yticklabels(bound)
-        ax_ThVsPx.set_yticklabels((analysis.cap_fac() * ticks * 1000).astype(int))
+        ax_ThVsPx.set_yticklabels((analysis.true_cap() * ticks * 1000).astype(int))
 
         ax_ThVsPx_2.set_ylabel('Volts')
 
@@ -1153,8 +1161,8 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_ThresDist.xaxis.set_minor_locator(AutoMinorLocator(5))
         ax_ThresDist.yaxis.set_minor_locator(AutoMinorLocator(5))
 #         ax_ThresDist.set_title('Threshold Distribution, percent included: %s' % perc_pix, y=1.10)
-        ax_ThresDist.set_xlabel('Injected Electrons')
-        ax_ThresDist.set_ylabel('No. of Pixels')
+        ax_ThresDist.set_xlabel('Electrons [e]')
+        ax_ThresDist.set_ylabel('Pixels')
 
         ax_ThresDist.grid()
 
@@ -1166,38 +1174,41 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
                 #------------------------------------------------------------------------------
                 #                        for the distribution of pixel flavors
                 #------------------------------------------------------------------------------
-                #             for flav in pixel_flav_list:
-                #                 mask = np.full((64, 64), False, dtype=np.bool)
-                #                 mask[pixel_flav_dict[flav][0][0]: pixel_flav_dict[flav][1][0],
-                #                      pixel_flav_dict[flav][0][1]: pixel_flav_dict[flav][1][1]] = True
-                #                 mask = mask.reshape(4096)
-                #                 where = np.where(mask == True)
-                #                 thresh = Threshold_pure[where]
+                # for flav in pixel_flav_list:
+                #     mask = np.full((64, 64), False, dtype=np.bool)
+                #     mask[pixel_flav_dict[flav][0][0]: pixel_flav_dict[flav][1][0],
+                #          pixel_flav_dict[flav][0][1]: pixel_flav_dict[flav][1][1]] = True
+                #     mask = mask.reshape(4096)
+                #     where = np.where(mask == True)
+                #     thresh = Threshold_pure[where]
                 #------------------------------------------------------------------------------
-
+                #         below is for fe flavors
                 stop = flav * 512 + 512
                 start = flav * 512
                 thresh = Threshold_pure[start:stop]
+                #------------------------------------------------------------------------------
+
                 bar_data = 0
-                bar_data, bins = np.histogram(thresh, 150, range=(min(filtThres), max(filtThres)))
+                bar_data, bins = np.histogram(thresh, 150, range=(min(thresh[thresh != 0]), max(thresh[thresh != 0])))
                 bin_left = bins[:-1]
                 ax_ThresDist.bar(x=bin_left, height=bar_data, width=0.001, alpha=0.3, align="edge")
 
-                lnspc_th = np.linspace(min(filtThres), max(filtThres), 150)
+                lnspc_th = np.linspace(min(thresh[thresh != 0]), max(thresh[thresh != 0]), 150)
                 popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, thresh.mean(), thresh.std()), maxfev=1000)
                 y_th = analysis.gauss(lnspc_th, *popt_th)
                 #------------------------------------------------------------------------------
                 # ax_ThresDist.plot(lnspc_th, y_th, label=("Fl: %s $\mu$: %s \n$\sigma$: %s" % (flav, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                #                                                                                               (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                #                                                                              (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
                 #------------------------------------------------------------------------------
-                ax_ThresDist.plot(lnspc_th, y_th, label=("Fl: %s $\mu$: %s \n$\sigma$: %s" % (flav + 1, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                              (popt_th[2] * analysis.cap_fac() * 1000).round(2))))
+                ax_ThresDist.plot(lnspc_th, y_th, label=("Fl: %s $\mu$: %s \n$\sigma$: %s" % (flav + 1, (popt_th[1] * analysis.true_cap() * 1000).round(0),
+                                                                                              (popt_th[2] * analysis.true_cap() * 1000).round(0))))
+                #------------------------------------------------------------------------------
                 ax_ThresDist.legend(prop={'size': 9})
                 print "Threshold fit flavor ", flav, ": ", popt_th
-                print "Threshold fit (electrons)flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
-                ticks = ax_ThresDist.get_xticks()
-                bound = ax_ThresDist.get_xbound()
-        except:
+                print "Threshold fit (electrons)flavor ", flav, ": ", popt_th * analysis.true_cap() * 1000
+
+        except Exception as e:
+            print(e)
             ax_ThresDist.clear()
             ax_ThresDist.xaxis.set_minor_locator(AutoMinorLocator(5))
             ax_ThresDist.yaxis.set_minor_locator(AutoMinorLocator(5))
@@ -1209,22 +1220,25 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
                 lnspc_th = np.linspace(min(filtThres), max(filtThres), 100)
                 popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, np.asarray(n), p0=(20, mu_th, sigma_th), maxfev=1000)
                 y_th = analysis.gauss(lnspc_th, *popt_th)
-                ax_ThresDist.plot(lnspc_th, y_th, 'r--', label=("$\mu$: %s \n$\sigma$: %s" % ((popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                              abs((popt_th[2] * analysis.cap_fac() * 1000).round(2)))))
+                ax_ThresDist.plot(lnspc_th, y_th, 'r--', label=("$\mu$: %s \n$\sigma$: %s" % ((popt_th[1] * analysis.true_cap() * 1000).round(2),
+                                                                                              abs((popt_th[2] * analysis.true_cap() * 1000).round(2)))))
                 ax_ThresDist.legend(loc=0)
                 print "Threshold fit: ", popt_th
-                print "Threshold fit (electrons): ", popt_th * analysis.cap_fac() * 1000
+                print "Threshold fit (electrons): ", popt_th * analysis.true_cap() * 1000
             except (RuntimeError, ValueError):
                 print("error in fitting of threshold gaussian")
             ticks = ax_ThresDist.get_xticks()
             bound = ax_ThresDist.get_xbound()
 
-        ax_ThresDist.set_xticklabels((analysis.cap_fac() * ticks * 1000).round().astype(int))
+        ticks = ax_ThresDist.get_xticks()
+        bound = ax_ThresDist.get_xbound()
         ax_ThresDist_2 = ax_ThresDist.twiny()
         ax_ThresDist_2.set_xticks(ticks)
         ax_ThresDist_2.set_xbound(bound)
+        print (analysis.true_cap() * ticks * 1000).round().astype(int)
+        ax_ThresDist.set_xticklabels((analysis.true_cap() * ticks * 1000).round().astype(int))
 
-        ax_ThresDist_2.set_xlabel('Volts')
+        ax_ThresDist_2.set_xlabel(r'$V_{inj}$ [V]')
         ax_ThresDist_2.xaxis.set_minor_locator(AutoMinorLocator(5))
         fig4.tight_layout()
 
@@ -1250,7 +1264,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_noiseHM.yaxis.set_minor_locator(AutoMinorLocator(5))
         ticks = ax_noiseHM.get_yticks()
         bound = ax_noiseHM.get_ybound()
-        ax_noiseHM.set_yticklabels((analysis.cap_fac() * ticks * 1000).round())
+        ax_noiseHM.set_yticklabels((analysis.true_cap() * ticks * 1000).round())
         ax_noiseHM_2.set_yticks(ticks)
         ax_noiseHM_2.set_ybound(bound)
         ax_noiseHM_2.set_ylabel('V')
@@ -1282,7 +1296,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
             print "Noise Gaussian: ", popt_n
             ax_noiseDist.plot(lnspc_n, y_n, "r--")
             ax_noiseDist.plot(lnspc_n, y_n, 'r--', label=("$\mu$: %s \n$\sigma$: %s" %
-                                                          (np.round(popt_n[1] * analysis.cap_fac() * 1000, 2), np.round(abs(popt_n[2] * analysis.cap_fac() * 1000), 2))))
+                                                          (np.round(popt_n[1] * analysis.true_cap() * 1000, 2), np.round(abs(popt_n[2] * analysis.true_cap() * 1000), 2))))
             ax_noiseDist.legend(loc=0)
 
         except (RuntimeError, ValueError):
@@ -1291,7 +1305,7 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
         ax_noiseDist.yaxis.set_minor_locator(AutoMinorLocator(2))
         ticks = ax_noiseDist.get_xticks()
         bound = ax_noiseDist.get_xbound()
-        ax_noiseDist.set_xticklabels((analysis.cap_fac() * ticks * 1000).round())
+        ax_noiseDist.set_xticklabels((analysis.true_cap() * ticks * 1000).round())
         ax_noiseDist_2.set_xticks(ticks)
         ax_noiseDist_2.set_xbound(bound)
         ax_noiseDist_2.set_xlabel('Noise [V]')
@@ -1326,18 +1340,18 @@ def scan_pix_hist(h5_file_name, scurve_sel_pix=200):  # 200 is (3,8)
                 lnspc_th = np.linspace(min(ax_noiseDist_fl), max(ax_noiseDist_fl), 150)
                 popt_th, _ = optimize.curve_fit(analysis.gauss, lnspc_th, bar_data, p0=(20, noise.mean(), noise.std()), maxfev=1000)
                 y_th = analysis.gauss(lnspc_th, *popt_th)
-                ax_noiseDist_fl.plot(lnspc_th, y_th, label=("Fl: %s $\mu$: %s \n$\sigma$: %s" % (flav + 1, (popt_th[1] * analysis.cap_fac() * 1000).round(2),
-                                                                                                 abs((popt_th[2] * analysis.cap_fac() * 1000).round(2)))))
+                ax_noiseDist_fl.plot(lnspc_th, y_th, label=("Fl: %s $\mu$: %s \n$\sigma$: %s" % (flav + 1, (popt_th[1] * analysis.true_cap() * 1000).round(2),
+                                                                                                 abs((popt_th[2] * analysis.true_cap() * 1000).round(2)))))
                 ax_noiseDist_fl.legend(prop={'size': 7})
     #             print "Noise fit flavor ", flav, ": ", popt_th
-                print "Noise fit (electrons) flavor ", flav, ": ", popt_th * analysis.cap_fac() * 1000
+                print "Noise fit (electrons) flavor ", flav, ": ", popt_th * analysis.true_cap() * 1000
         except:
             print "noise fit plot fail"
         ax_noiseDist_fl.xaxis.set_minor_locator(AutoMinorLocator(5))
         ax_noiseDist_fl.yaxis.set_minor_locator(AutoMinorLocator(2))
         ticks = ax_noiseDist_fl.get_xticks()
         bound = ax_noiseDist_fl.get_xbound()
-        ax_noiseDist_fl.set_xticklabels((analysis.cap_fac() * ticks * 1000).round())
+        ax_noiseDist_fl.set_xticklabels((analysis.true_cap() * ticks * 1000).round())
         ax_noiseDist_fl_2.set_xticks(ticks)
         ax_noiseDist_fl_2.set_xbound(bound)
         ax_noiseDist_fl_2.set_xlabel('Noise [V]')

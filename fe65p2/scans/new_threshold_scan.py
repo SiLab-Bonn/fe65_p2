@@ -24,7 +24,7 @@ from basil.dut import Dut
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip6.yaml'
 
 local_configuration = {
     "quad_columns": [True] * 16 + [False] * 0,
@@ -39,20 +39,10 @@ local_configuration = {
     #     "compVbnDac": 25,
     #     "preCompVbnDac": 50,
 
-    # chip 4
-    #     "PrmpVbpDac": 125,
-    #     "vthin1Dac": 40,
-    #     "vthin2Dac": 0,
-    #     "vffDac": 73,
-    #     "PrmpVbnFolDac": 61,
-    #     "vbnLccDac": 1,
-    #     "compVbnDac": 45,
-    #     "preCompVbnDac": 180,
-
     #   thrs scan
     "mask_steps": 4,
     "repeat_command": 100,
-    "scan_range": [0.001, 0.4, 0.03],
+    "scan_range": [0.0001, 0.2, 0.007],
     "TDAC": 16
 }
 
@@ -121,7 +111,7 @@ class ThresholdScan(ScanBase):
         mask_en = np.full([64, 64], False, dtype=np.bool)
         mask_tdac = np.full([64, 64], TDAC, dtype=np.uint8)
         mask_inj = np.full([64, 64], False, dtype=np.bool)
-        mask_hitor = np.full([64, 64], True, dtype=np.bool)
+        mask_hitor = np.full([64, 64], False, dtype=np.bool)
 
         self.dut.write_tune_mask(mask_tdac)
 
@@ -138,7 +128,7 @@ class ThresholdScan(ScanBase):
         file7 = kwargs.get("noise_col7")
         mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
-        vth1 += 110
+        vth1 += 20
         print vth1
 #         if mask_filename:
 #             logging.info('***** Using pixel mask from file: %s', mask_filename)
@@ -202,11 +192,11 @@ class ThresholdScan(ScanBase):
                     mask_inj[i::mask_steps] = True
                     mask_inj = mask_inj.reshape(64, 64)
                     mask_en = mask_inj
-                    mask_hitor = mask_inj
+#                     mask_hitor = mask_inj
                     mask_en[(mask_en_from_file == False) & (mask_inj == True)] = False
                     self.dut.write_inj_mask(mask_inj)
                     self.dut.write_en_mask(mask_en)
-                    self.dut.write_hitor_mask()
+#                     self.dut.write_hitor_mask()
                     self.set_local_config(vth1=vth1)
 
                     self.dut['inj'].start()

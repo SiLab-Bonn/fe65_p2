@@ -6,8 +6,8 @@ vth1 values will be printed at the end of each run and compared at the end
 Created by Daniel Coquelin on 1/17/2018
 '''
 
-from fe65p2.scans.noise_tuning import NoiseTuning
-import fe65p2.DGC_plotting as DGC_plotting
+from noise_tuning import NoiseTuning
+import DGC_plotting as DGC_plotting
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 
@@ -20,7 +20,7 @@ import yaml
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip4.yaml'
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip6.yaml'
 
 local_configuration = {
     #   DAC parameters

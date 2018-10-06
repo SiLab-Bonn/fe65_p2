@@ -21,7 +21,7 @@ from basil.dut import Dut
 import os
 import yaml
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip6.yaml'
 
 local_configuration = {
     "mask_steps": 4,
@@ -116,18 +116,17 @@ class AnalogScan(ScanBase):
         mask_tdac = np.full([64, 64], 15, dtype=np.uint8)
         mask_hitor = np.full([64, 64], True, dtype=np.bool)
 
-        file0 = kwargs.get("inj_col0")
-        file1 = kwargs.get("inj_col1")
-        file2 = kwargs.get("inj_col2")
-        file3 = kwargs.get("inj_col3")
-        file4 = kwargs.get("inj_col4")
-        file5 = kwargs.get("inj_col5")
-        file6 = kwargs.get("inj_col6")
-        file7 = kwargs.get("inj_col7")
+        file0 = kwargs.get("noise_col0")
+        file1 = kwargs.get("noise_col1")
+        file2 = kwargs.get("noise_col2")
+        file3 = kwargs.get("noise_col3")
+        file4 = kwargs.get("noise_col4")
+        file5 = kwargs.get("noise_col5")
+        file6 = kwargs.get("noise_col6")
+        file7 = kwargs.get("noise_col7")
         mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
-#         print vth1
-#         vth1 += 20
+        vth1 += 20
 #         vth1 = 10
         print vth1
 
@@ -136,7 +135,7 @@ class AnalogScan(ScanBase):
         mask_en_from_file[ex_pix_disable_list] = False
         mask_en_from_file = mask_en_from_file.reshape(64, 64)
         self.dut.write_en_mask(mask_en)
-        self.dut.write_tune_mask(mask_tdac.astype(np.uint8))
+        self.dut.write_tune_mask(mask_tdac)
         self.dut.write_inj_mask(mask_inj)
         self.dut.write_hitor_mask(mask_hitor)
 
@@ -149,7 +148,7 @@ class AnalogScan(ScanBase):
         self.dut['inj'].set_repeat(repeat_command)
         self.dut['inj'].set_en(False)
 
-        self.dut['trigger'].set_delay(402)
+        self.dut['trigger'].set_delay(395)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
@@ -167,10 +166,10 @@ class AnalogScan(ScanBase):
                 mask_inj = mask_inj.reshape(64, 64)
                 mask_en = mask_inj
                 mask_hitor = mask_inj
-                mask_en[(mask_en_from_file == False) & (mask_inj == True)] = False
+                mask_en[(mask_en_from_file == False)] = False
                 self.dut.write_inj_mask(mask_inj)
                 self.dut.write_en_mask(mask_en)
-                self.dut.write_hitor_mask()
+                self.dut.write_hitor_mask(mask_en)
                 self.set_local_config()
 
                 self.dut['inj'].start()

@@ -4,8 +4,8 @@
     stop at pixel count, vthin1 at 0, or tdac average at 7
 '''
 
-from fe65p2.scan_base import ScanBase
-import fe65p2.DGC_plotting as DGC_plotting
+from scan_base import ScanBase
+import DGC_plotting as DGC_plotting
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 import time

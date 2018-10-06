@@ -16,6 +16,10 @@ def inj_cap():
     return 1.18  # unit: fF
 
 
+def true_cap():
+    return 7.989  # [1/V] true value is 1.292fF
+
+
 class TDCTable(tb.IsDescription):
     pix_num = tb.UInt16Col(pos=0)
     elecs = tb.Float64Col(pos=1)
@@ -308,6 +312,8 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
 
         threshold = np.empty(64 * 64)
         noise = np.empty(64 * 64)
+        thresh_err = np.empty(64 * 64)
+        noise_err = np.empty(64 * 64)
         chi2 = np.empty(64 * 64)
         x = scan_range_inx
 
@@ -321,14 +327,16 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
         for pix in range(64 * 64):
             # this can multi threaded
             if vth1:
-                fitOut = fit_scurve(s_hist[pix], x, repeat_command, vth1=False)
+                fitOut, errors = fit_scurve(s_hist[pix], x, repeat_command, vth1=False)
             else:
-                fitOut = fit_scurve(s_hist[pix], x, repeat_command)
+                fitOut, errors = fit_scurve(s_hist[pix], x, repeat_command)
 
             # starting at 1, 0 is scalling->should be fixed at repeat_command
             threshold[pix] = fitOut[1]
             noise[pix] = fitOut[2]
             chi2[pix] = fitOut[3]
+            thresh_err[pix] = errors[1]
+            noise_err[pix] = errors[2]
         shape = en_mask.shape
         ges = 1
 
@@ -359,8 +367,8 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
         for entries in range(len(hist_noise_x) - 1):
             new_x = np.append(new_x, (hist_noise_x[entries] + hist_noise_x[entries + 1]) / 2)
         hist_noise_x = new_x
-        gauss_thresh = fit_gauss(hist_thresh_x[2:-4], hist_thresh_y[2:-4])
-        gauss_noise = fit_gauss(hist_noise_x[2:-4], hist_noise_y[2:-4])
+        gauss_thresh, _ = fit_gauss(hist_thresh_x[2:-4], hist_thresh_y[2:-4])
+        gauss_noise, _ = fit_gauss(hist_noise_x[2:-4], hist_noise_y[2:-4])
         thresh_fit_values = {}
         noise_fit_values = {}
         thresh_fit_values['height'] = gauss_thresh[0]
@@ -372,11 +380,15 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
         noise_fit_values['sigma'] = gauss_noise[2]
 
         threshold = threshold.reshape(64, 64)
+        thresh_err = noise.reshape(64, 64)
         noise = noise.reshape(64, 64)
+        noise_err = noise.reshape(64, 64)
         chi2 = chi2.reshape(64, 64)
 
         Thresh_results = in_file_h5.create_group("/", 'Thresh_results', 'Thresh_results')
+        Thresh_errs = in_file_h5.create_group("/", 'Thresh_errs', 'Thresh_errs')
         Noise_results = in_file_h5.create_group("/", 'Noise_results', 'Noise_results')
+        Noise_errs = in_file_h5.create_group("/", 'Noise_errs', 'Noise_errs')
         Chisq_results = in_file_h5.create_group("/", 'Chisq_results', 'ChiSq_results')
         Scurves_Measurments = in_file_h5.create_group("/", 'Scurves_Measurments', 'Scurves_Measurments')
 
@@ -403,6 +415,12 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
                                                   shape=threshold.shape)
         threshold_hist[:] = threshold
 
+        thres_errs_hist = in_file_h5.create_carray(Thresh_errs, name='Threshold_errs', title='Threshold Errors',
+                                                   atom=tb.Atom.from_dtype(
+                                                       thresh_err.dtype),
+                                                   shape=thresh_err.shape)
+        thres_errs_hist[:] = thresh_err
+
         threshold_pure_hist = in_file_h5.create_carray(Thresh_results, name='Threshold_pure',
                                                        title='Threshold_pure Histogram',
                                                        atom=tb.Atom.from_dtype(
@@ -428,6 +446,12 @@ def analyze_threshold_scan(h5_file_name, vth1=False):
                                               shape=noise.shape)
         noise_hist[:] = noise
         noise_pure_hist.attrs.fitdata_noise = noise_fit_values
+
+        noise_errs_hist = in_file_h5.create_carray(Noise_errs, name='Noise_Errs', title='Noise Errors',
+                                                   atom=tb.Atom.from_dtype(
+                                                       noise_err.dtype),
+                                                   shape=noise_err.shape)
+        noise_errs_hist[:] = noise_err
 
 #         print 'percent disabled', 100 * (en_mask[en_mask == False].shape[0] / 4096.)
 #         en_mask[...] = en_mask
@@ -732,21 +756,30 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command, vth1=False):
     # print p0
     if abs(max_occ) <= 1e-08 and not vth1:  # or index == 0: occupancy is zero or close to zero
         popt = [0, 0, 0]
+        errors = [0, 0, 0]
     else:
         try:
             if vth1:
-                popt, _ = curve_fit(zcurve, PlsrDAC, scurve_data, p0=[repeat_command, mu_guess, -0.5], check_finite=False)
+                popt, pcov = curve_fit(zcurve, PlsrDAC, scurve_data, p0=[repeat_command, mu_guess, -0.5], check_finite=False)
 
                 #logging.info('Fit-params-zcurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
             else:
-                popt, _ = curve_fit(scurve, PlsrDAC, scurve_data, p0=[repeat_command,
-                                                                      mu_guess, sig_guess], sigma=data_errors, check_finite=False)
+                popt, pcov = curve_fit(scurve, PlsrDAC, scurve_data, p0=[repeat_command,
+                                                                         mu_guess, sig_guess], sigma=data_errors, check_finite=False)
                 if popt[1] < 0:
                     popt[1] = 0
+            errors = np.sqrt(np.diagonal(pcov))
+
+#             try:
+#                 errors2 = np.sqrt(np.linalg.eig(pcov)[0])
+#                 errors = errors2
+#             except Exception as e:
+#                 print e, "/neigenvalue computation does not converge"
 #                 logging.info('Fit-params-scurve: %s %s %s ', str(popt[0]), str(popt[1]), str(popt[2]))
         except RuntimeError:  # fit failed
             popt = [repeat_command, mu_guess, sig_guess]
             logging.info('*****Fit did not work scurve: %s %s %s', str(popt[0]), str(popt[1]), str(popt[2]))
+            errors = [0, 0, 0]
 
 #     chi2 = np.sum((np.diff(scurve_data - scurve(PlsrDAC, *popt))**2) * repeat_command)
     chi2 = ss.chisquare(scurve_data, scurve(PlsrDAC, *popt))
@@ -770,7 +803,7 @@ def fit_scurve(scurve_data, PlsrDAC, repeat_command, vth1=False):
 #
 #             logging.info('Fit failed on good data, params: %s %s %s', str(popt[0]), str(popt[1]), str(popt[2]))
 
-    return [popt[0], popt[1], popt[2], chi2[0]]
+    return [popt[0], popt[1], popt[2], chi2[0]], errors
 
 
 def gauss(x_data, *parameters):
@@ -797,7 +830,7 @@ def double_gauss_lin(x_data, *parameters):
     return A_gauss1 * np.exp(-(x_data - mu_gauss1)**2 / (2. * sigma_gauss1**2)) + A_gauss2 * np.exp(-(x_data - mu_gauss2)**2 / (2. * sigma_gauss2**2)) + m * x_data + b
 
 
-def fit_gauss(x_data, y_data, params_guess=None):
+def fit_gauss(x_data, y_data, params_guess=None, errors=False, bounds=None):
     """Fit gauss"""
     # params_guess -> ndarray
     x_data = np.array(x_data)
@@ -807,35 +840,64 @@ def fit_gauss(x_data, y_data, params_guess=None):
         params_guess = np.array([np.max(y_data), y_maxima[0], np.std(x_data)])  # np.mean(y_data)
 #     logging.info('Params guessed: %s ', str(params_guess))
     try:
-        params_from_fit = curve_fit(gauss, x_data, y_data, p0=params_guess)
+        if errors == False:
+            params_from_fit, pcov = curve_fit(gauss, x_data, y_data, p0=params_guess)
+        else:
+            if bounds:
+                params_from_fit, pcov = curve_fit(gauss, x_data, y_data, p0=params_guess, sigma=1 / np.sqrt(y_data), bounds=bounds)
+            else:
+                params_from_fit, pcov = curve_fit(gauss, x_data, y_data, p0=params_guess, sigma=1 / np.sqrt(y_data))
 #         logging.info('Fit-params-gauss: %s %s %s ', str(params_from_fit[0][0]), str(
 #             params_from_fit[0][1]), str(params_from_fit[0][2]))
+        errors = np.sqrt(np.diagonal(pcov))
+
+        try:
+            errors2 = np.sqrt(np.linalg.eig(pcov)[0])
+            errors = errors2
+        except LinAlgError:
+            print "eigenvalue computation does not converge"
+
+        if errors[1] < (params_from_fit[2] / np.sqrt(params_from_fit[1])):
+            errors[1] = (params_from_fit[2] / np.sqrt(params_from_fit[1]))
+
     except RuntimeError:
         #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
         #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
-        return params_guess[0], params_guess[1], params_guess[2]
-    A_fit = params_from_fit[0][0]
-    mu_fit = params_from_fit[0][1]
-    sigma_fit = np.abs(params_from_fit[0][2])
-    return A_fit, mu_fit, sigma_fit
+        params_from_fit = [params_guess[0], params_guess[1], params_guess[2]]
+
+    return params_from_fit, errors
 
 
-def fit_gauss_lin(x_data, y_data, params_guess):
+def fit_gauss_lin(x_data, y_data, params_guess, bounds=None):
     """Fit double gauss function"""
     # params_guess -> ndarray
     x_data = np.array(x_data)
     y_data = np.array(y_data)
 
     try:
-        popt, _ = curve_fit(gauss_lin, x_data, y_data, p0=params_guess)
-    except RuntimeError:
-        #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
+        if bounds is None:
+            popt, pcov = curve_fit(gauss_lin, x_data, y_data, p0=params_guess, sigma=1 / np.sqrt(y_data))
+        else:
+            popt, pcov = curve_fit(gauss_lin, x_data, y_data, p0=params_guess, sigma=1 / np.sqrt(y_data), bounds=bounds)
+        errors = np.sqrt(np.diagonal(pcov))
+        try:
+            errors2 = np.sqrt(np.linalg.eig(pcov)[0])
+            errors = errors2
+        except LinAlgError:
+            print "eigenvalue computation does not converge"
+
+#         print popt[1], popt[2], popt[2] / np.sqrt(popt[1])
+#         if errors[1] < (popt[2] / np.sqrt(popt[1])):
+        errors[1] = (popt[2] / np.sqrt(popt[1]))
+
+    except Exception as e:
+        print 'gaus_lin fail:', e
         #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
         return params_guess
 #     A_fit = params_from_fit[0][0]
 #     mu_fit = params_from_fit[0][1]
 #     sigma_fit = np.abs(params_from_fit[0][2])
-    return popt
+    return popt, errors
 
 
 def fit_double_gauss(x_data, y_data, params_guess, bounds=None):
@@ -846,35 +908,33 @@ def fit_double_gauss(x_data, y_data, params_guess, bounds=None):
 
     try:
         if bounds:
-            popt, _ = curve_fit(double_gauss, x_data, y_data, p0=params_guess, bounds=bounds)
+            popt, pcov = curve_fit(double_gauss, x_data, y_data, p0=params_guess, bounds=bounds, sigma=1 / np.sqrt(y_data), maxfev=20000)
         else:
-            popt, _ = curve_fit(double_gauss, x_data, y_data, p0=params_guess)
-    except RuntimeError:
+            popt, pcov = curve_fit(double_gauss, x_data, y_data, p0=params_guess, sigma=1 / np.sqrt(y_data))
+
+        errors = np.sqrt(np.diagonal(pcov))
+        try:
+            errors2 = np.sqrt(np.linalg.eig(pcov)[0])
+            errors = errors2
+        except LinAlgError:
+            print "eigenvalue computation does not converge"
+
+#         if errors[1] < (popt[2] / np.sqrt(popt[1])):
+        errors[1] = (popt[2] / np.sqrt(popt[1]))
+#         if errors[4] < (popt[5] / np.sqrt(popt[4])):
+        errors[4] = (popt[5] / np.sqrt(popt[4]))
+
+    except Exception as e:
+        print "error in double gauss fit:", e
         #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
         #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
         return params_guess
+
+
 #     A_fit = params_from_fit[0][0]
 #     mu_fit = params_from_fit[0][1]
 #     sigma_fit = np.abs(params_from_fit[0][2])
-    return popt
-
-
-def fit_double_gauss_lin(x_data, y_data, params_guess):
-    """Fit double gauss function"""
-    # params_guess -> ndarray
-    x_data = np.array(x_data)
-    y_data = np.array(y_data)
-
-    try:
-        popt, _ = curve_fit(double_gauss_lin, x_data, y_data, p0=params_guess)
-    except RuntimeError:
-        #         logging.info('Fit did not work gauss: %s %s %s', str(np.max(y_data)), str(
-        #             x_data[np.where(y_data[:] == np.max(y_data))[0]][0]), str(np.std(x_data)))
-        return params_guess
-#     A_fit = params_from_fit[0][0]
-#     mu_fit = params_from_fit[0][1]
-#     sigma_fit = np.abs(params_from_fit[0][2])
-    return popt
+    return popt, errors
 
 
 if __name__ == "__main__":

@@ -55,13 +55,17 @@ fe5 = [[40, 0], [47, 63]]
 fe6 = [[48, 0], [55, 63]]
 fe7 = [[56, 0], [63, 63]]
 
+pix_list = [[11, 6], [10, 12], [11, 20], [9, 37], [44, 5], [44, 12], [41, 19], [42, 42],
+            [5, 25], [10, 25], [19, 25], [29, 25], [33, 25], [46, 24], [49, 25], [60, 25],
+            [2, 7], [10, 7], [20, 7], [29, 4], [35, 5], [42, 6], [54, 6], [58, 6],
+            [3, 49], [12, 50], [19, 54], [24, 55], [37, 51], [45, 46], [49, 49], [58, 44]]
+
 
 class TDCSrcCalib(ScanBase):
     scan_id = "tdc_src_calib"
 
     def scan(self, **kwargs):
         # pixels in column, row format
-        pix_list = [[11, 6], [10, 12], [11, 20], [9, 37], [44, 5], [44, 12], [41, 19], [42, 42]]
 
         try:  # pulser
             pulser = Dut(ScanBase.get_basil_dir(self) + '/examples/lab_devices/agilent33250a_pyserial.yaml')
@@ -158,23 +162,19 @@ class TDCSrcCalib(ScanBase):
         self.set_local_config(vth1=vth1)
         time.sleep(2.0)
 
-        pulser['Pulser'].set_on_off("ON")
-        time.sleep(3)
-        pulser['Pulser'].set_on_off("OFF")
-
         with self.readout():
             try:
                 self.dut['trigger'].set_en(True)
                 self.dut['tdc']['ENABLE'] = True
                 self.dut['TLU'].TRIGGER_ENABLE = 1
-                repeat_loop = 216
-                sleep_time = 100.
+                repeat_loop = 6 * 3600
+                sleep_time = 1.
                 pbar = tqdm(range(repeat_loop))
                 for _ in pbar:
 
                     time.sleep(sleep_time)
                     count_loop = self.fifo_readout.get_record_count() - count_old
-                    pbar.set_description("Counts/s %s " % str(np.round(count_loop / (sleep_time * 17), 5)))
+                    pbar.set_description("Counts/pix %s " % str(np.round(self.fifo_readout.get_record_count() / (18. * len(pix_list)), 5)))
                     count_old = self.fifo_readout.get_record_count()
 
                     while not self.dut['trigger'].is_done():
@@ -194,23 +194,22 @@ class TDCSrcCalib(ScanBase):
 
     def analyze(self):
         h5_filename = self.output_filename + '.h5'
-        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_src_calib_Tb.pdf'
+        pdfName = '/home/daniel/MasterThesis/fe65_p2/fe65p2/scans/output_data/tdc_src_calib_Am.pdf'
         pp = PdfPages(pdfName)
 
         with tb.open_file(h5_filename, 'r+') as io_file_h5:
             meta_data = io_file_h5.root.meta_data[:]
             raw_data = io_file_h5.root.raw_data[:]
             hit_data = self.dut.interpret_raw_data_w_tdc(raw_data, meta_data)
-            print hit_data['tdc']
+#             print hit_data['tdc']
             io_file_h5.create_table(io_file_h5.root, 'hit_data', hit_data, filters=self.filter_tables)
-            for pix in pixel_flav_list:
-                data_singles = anal.singular_hits_tdc_pix_flav(hit_data=hit_data, flav=pix)
-                fig1 = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename, hit_data=data_singles, pixel_flav=pix, src_name='Tb')
-
+            data_singles = anal.singular_hits_tdc_pix_flav(hit_data=hit_data)
+            fig_list = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename, hit_data=data_singles, pixel_list=pix_list, src_name='Am')
+            for fig1 in fig_list:
                 pp.savefig(fig1, layout='tight')
                 plt.clf()
         fig = DGC_plotting.tdc_src_spectrum(h5_file=h5_filename)
-        pp.savefig(fig, layout='tight')
+        pp.savefig(fig[0], layout='tight')
         plt.clf()
         occ_plot = DGC_plotting.plot_occupancy(h5_filename)
         pp.savefig(occ_plot)

@@ -17,7 +17,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 import yaml
 
-yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip3.yaml'
+yaml_file = '/home/daniel/MasterThesis/fe65_p2/fe65p2/chip6.yaml'
 
 local_configuration = {
     "triggers": 1000000,
@@ -77,7 +77,7 @@ class NoiseOccVth1(ScanBase):
         file7 = kwargs.get("noise_col7")
         mask_en_from_file, mask_tdac, vth1 = noise_cols.combine_prev_scans(
             file0=file0, file1=file1, file2=file2, file3=file3, file4=file4, file5=file5, file6=file6, file7=file7)
-        vth1 += 50
+        vth1 += 20
         print vth1
         logging.info("vth1: %s" % str(vth1))
         ex_pix_disable_list = kwargs.get("ex_pix_disable_list")

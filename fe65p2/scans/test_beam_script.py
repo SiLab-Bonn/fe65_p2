@@ -57,75 +57,92 @@ scan_working = False
 scan_anal_done = False
 
 
-def scan_func(self):
+def scan_func(self, trigger_stop=10000000):
     scan = Test_Beam_Script()
     yaml_kwargs = yaml.load(open(yaml_file))
     local_configuration.update(dict(yaml_kwargs))
     try:
-        scan_finished_flag = scan.start(**local_configuration)
+        scan.start(trigger_stop=trigger_stop, **local_configuration)
     except:
         exc_type, exc_value, exc_traceback = sys.exc_info()
         lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
         logging.warning(lines)
-        # if overflow -> power cycle
         try:
-            dut = Dut(ScanBase.get_basil_dir(self) + '/examples/lab_devices/tti_ql355tp_pyserial.yaml')
-            dut.init()
-            print dut['THURLBY-THANDAR,QL355TP,D,1.6'].get_info()
-            dut['THURLBY-THANDAR,QL355TP,D,1.6'].power_cycle(channel=3)
-            time.sleep(0.2)
             scan.start(**local_configuration)
         except:
-            logging.warning("Failed power cycle of chip")
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-            logging.warning(lines)
-    if scan_finished_flag == True:
-        scan.analyze()
-        scan_finished_flag = False
+            logging.info("Scan failed to start twice...power cycle??")
+
+
+def fei4_scan_starter():
+    runmgr = RunManager("configuration_fei4_tel.yaml")
+    runmgr.run_run(ExtTriggerScan, run_conf={"max_triggers": 10 * 10**6})
 
 
 def scan_controller(self):
+    #     scan = Test_Beam_Script()
+    #     yaml_kwargs = yaml.load(open(yaml_file))
+    #     local_configuration.update(dict(yaml_kwargs))
+    # this will run until the user stops it, or if the total time hits 2 hours
+    start = time.clock()
+    time_elapsed = 0
+    scan_num = 0
+    while time_elapsed < 1800:
+        logging.info("Starting scan %s", str(scan_num))
+        scan_func(trigger_stop=10000000)
+        time_elapsed = time.clock() - start
+        scan_num += 1
+        # TODO: if scan_num %5 (ish) test to make sure that the tlu is still showing good data
+        # -> this should be done in the analysis side of things
+    print scan_num
+
+
+#===============================================================================
+# multithreaded is above but with some quick trials of something similar
+# the computer locked up, on the slower pc this will probably happen faster
+# will upload the data to the serius server and then analyze it on a different pc
+# this should prevent many errors,
+#===============================================================================
+
     # TODO: from the analysis want to see the lv1id, tot hist, occ, and correlation?
-    t1 = Thread(target=scan_func())
-    t2 = Thread(target=scan_func())
-#     t3 = Thread(target=scan_func())
-    t1_started = False
-    t2_started = False
-#     t3_started = False
-    # TODO: need a new start condition, total words???
-    while scan_working == False:
-        if not t1_started:
-            t1.start()
-            t1_started = True
-        elif t1_started and not t1.is_alive():
-            t1.run()
-        else:
-            t1.join()
-
-        while scan_working == True:
-            time.sleep(1.0)  # must poll before starting the next scan
-
-        if not t2.is_alive():
-            if not t2_started:
-                t2.start()
-            else:
-                t2.run()
-        else:
-            t2.join()
-
-        while scan_working:
-            time.sleep(1.0)
-            if scan_anal_done:
-                t1.join()
-                scan_anal_done = False
-        t2.join()
+    fe65_thread = Thread(target=scan_func(trigger_stop=10000000))
+    fei4_thread = Thread(target=scan_func())
+# #     t3 = Thread(target=scan_func())
+#     t1_started = False
+#     t2_started = False
+# #     t3_started = False
+#     # TODO: need a new start condition, total words???
+#     while scan_working == False:
+#         if not t1_started:
+#             t1.start()
+#             t1_started = True
+#         elif t1_started and not t1.is_alive():
+#             t1.run()
+#         else:
+#             t1.join()
+#
+#         while scan_working == True:
+#             time.sleep(1.0)  # must poll before starting the next scan
+#
+#         if not t2.is_alive():
+#             if not t2_started:
+#                 t2.start()
+#             else:
+#                 t2.run()
+#         else:
+#             t2.join()
+#
+#         while scan_working:
+#             time.sleep(1.0)
+#             if scan_anal_done:
+#                 t1.join()
+#                 scan_anal_done = False
+#         t2.join()
 
 
 class Test_Beam_Script(ScanBase):
     scan_id = "test_beam_script"
 
-    def scan(self, repeat_command=1000, mask_filename='', **kwargs):
+    def scan(self, trigger_stop=1000, **kwargs):
         scan_working = True
         self.dut.set_for_configuration()
 
@@ -163,7 +180,6 @@ class Test_Beam_Script(ScanBase):
 
         mask_en = np.full([64, 64], False, dtype=np.bool)
         mask_tdac = np.full([64, 64], 15, dtype=np.uint8)
-        mask_inj = np.full([64, 64], True, dtype=np.bool)
         mask_hitor = np.full([64, 64], False, dtype=np.bool)
 #         np.reshape(mask_inj, 4096)
 #         mask_inj[1::4] = True
@@ -191,10 +207,9 @@ class Test_Beam_Script(ScanBase):
 
         self.dut.write_en_mask(mask_en_from_file)
         self.dut.write_tune_mask(mask_tdac)
-        self.dut.write_inj_mask(mask_inj)
         self.dut.write_hitor_mask(mask_hitor)
 
-        self.dut['trigger'].set_delay(469)
+        self.dut['trigger'].set_delay(356)
         self.dut['trigger'].set_width(16)
         self.dut['trigger'].set_repeat(1)
         self.dut['trigger'].set_en(True)
@@ -204,41 +219,39 @@ class Test_Beam_Script(ScanBase):
         self.dut['TLU_veto_pulse'].set_repeat(1)
         self.dut['TLU_veto_pulse'].set_en(True)
 
-        self.dut['TLU'].RESET = 1
         self.dut['TLU'].TRIGGER_COUNTER = 0
         self.dut['TLU'].TRIGGER_MODE = 3
         self.dut['TLU'].TRIGGER_SELECT = 0  # 0-> disabled, 1-> hitOr, 2->RX0, 3-> RX1, 4->RX2
-        self.dut['TLU'].TRIGGER_VETO_SELECT = 0
+#         self.dut['TLU'].TRIGGER_VETO_SELECT = 1
+        self.dut['TLU'].EN_TLU_VETO = 0
         self.dut['TLU'].DATA_FORMAT = 0  # only trigger id
-        # Depends on the cable length and should be adjusted (run scan/tune_tlu.py in pybar repository)
-        self.dut['TLU'].TRIGGER_DATA_DELAY = 5
-        self.dut['TLU'].TRIGGER_HANDSHAKE_ACCEPT_WAIT_CYCLES = 5
+        self.dut['TLU'].TRIGGER_DATA_DELAY = 6
+        self.dut['TLU'].TRIGGER_HANDSHAKE_ACCEPT_WAIT_CYCLES = 20
 
 
 #===============================================================================
 # scan loop is until there is 50000 words
 #===============================================================================
 
-        word_stop = 50000000
-        words = 0
         completed = False
-        param_num = 0
         self.dut.set_for_configuration()
         self.set_local_config(vth1=vth1)
-        self.dut['TLU'].TRIGGER_ENABLE = 1
-        with self.readout(scan_param_id=param_num):
+        with self.readout(fill_buffer=True):
+            self.dut['TLU'].TRIGGER_ENABLE = 1
             while not completed:
-                time.sleep(300.)
-                words = self.fifo_readout.get_record_count()
-                if words >= word_stop:
-                    print words
+                time.sleep(100.)
+                triggers = self.dut['TLU'].TRIGGER_COUNTER
+                print triggers
+                if triggers >= trigger_stop:
+                    logging.info("Exit: full scan to %s triggers", str(self.dut['TLU'].TRIGGER_COUNTER))
                     completed = True
-                param_num += 1
-        self.dut['TLU'].TRIGGER_ENABLE = 0
+                else:
+                    logging.info("Triggers: %s", str(triggers))
+
+            self.dut['TLU'].TRIGGER_ENABLE = 0
 
         scan_working = False
         scan_finished_flag = True
-        return words
 
     def analyze(self):
         scan_anal_done = False
@@ -254,8 +267,5 @@ class Test_Beam_Script(ScanBase):
 
 
 if __name__ == "__main__":
-    scan = Test_Beam_Script()
-    yaml_kwargs = yaml.load(open(yaml_file))
-    local_configuration.update(dict(yaml_kwargs))
-    scan.start(**local_configuration)
-    scan.analyze()
+    scan_controller()
+#     scan.analyze()
